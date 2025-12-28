@@ -1,0 +1,4 @@
+# CODEOWNERS
+* @triplelift-internal/subteam-core-formats
+.github/** @triplelift-internal/subteam-core-formats-deployers
+
