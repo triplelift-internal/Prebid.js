@@ -28,7 +28,34 @@ const converter = ortbConverter({
     if (bidRequest.params.inventoryCode) {
       utils.deepSetValue(imp, 'tagid', bidRequest.params.inventoryCode);
     }
-    if (isBannerRequest(bidRequest) && !isInstreamRequest(bidRequest) && !isNativeRequest(bidRequest)) {
+    if (isValidVideo(bidRequest)) {
+      const mediaTypesVideo = utils.deepAccess(bidRequest, 'mediaTypes.video');
+      const videoParams = utils.deepAccess(bidRequest, 'params.video') || {};
+
+      const video = {...mediaTypesVideo, ...videoParams};
+
+      if ((!video.w || !video.h) && video.playerSize) {
+        // playerSize can be a single size [w, h] or array of sizes [[w, h], ...]
+        const size = Array.isArray(video.playerSize[0]) ? video.playerSize[0] : video.playerSize;
+        if (Array.isArray(size) && size.length >= 2) {
+          if (video.w == null) video.w = size[0];
+          if (video.h == null) video.h = size[1];
+        }
+      }
+      if (video.playerSize) delete video.playerSize;
+
+      if (Number.isInteger(video.playbackmethod)) {
+        video.playbackmethod = [video.playbackmethod];
+      }
+
+      mergeDeep(imp, {
+        video: video
+      });
+    }
+    if (isInstreamRequest(bidRequest)) {
+      // Remove banner set by the default ortbConverter processor if instream
+      delete imp.banner;
+    } else if (isBannerRequest(bidRequest) && !isNativeRequest(bidRequest)) {
       mergeDeep(imp, {
         banner: {
           format: formatSizes(bidRequest.sizes)
@@ -43,22 +70,7 @@ const converter = ortbConverter({
         });
       }
     }
-    if (isValidVideo(bidRequest)) {
-      const mediaTypesVideo = utils.deepAccess(bidRequest, 'mediaTypes.video');
-      const videoParams = utils.deepAccess(bidRequest, 'params.video') || {};
 
-      const video = {...mediaTypesVideo, ...videoParams};
-
-      if ((!video.w || !video.h) && video.playerSize) {
-        const size = Array.isArray(video.playerSize[0]) ? video.playerSize[0] : video.playerSize;
-        if (video.w == null && Array.isArray(size)) video.w = size[0];
-        if (video.h == null && Array.isArray(size)) video.h = size[1];
-        delete video.playerSize;
-      }
-      mergeDeep(imp, {
-        video: video
-      });
-    }
     setBidFloors(bidRequest, imp);
 
     return imp;
@@ -69,7 +81,8 @@ const converter = ortbConverter({
     const bid = context.bidRequests[0];
     const ortb2Eids = deepAccess(bid, 'ortb2.user.ext.eids');
     const userIdEids = deepAccess(bid, 'userIdAsEids');
-    const eids = Array.isArray(ortb2Eids) && ortb2Eids.length ? ortb2Eids : (Array.isArray(userIdEids) && userIdEids.length ? userIdEids : null);
+    const eids = Array.isArray(ortb2Eids) && ortb2Eids.length
+      ? ortb2Eids : (Array.isArray(userIdEids) && userIdEids.length ? userIdEids : null);
     if (eids) {
       mergeDeep(req, { user: { ext: { eids } } });
     }
@@ -153,7 +166,7 @@ export const spec = {
         syncEndpoint = tryAppendQueryString(syncEndpoint, 'gpp', gppConsent.gppString);
       }
       if (gppConsent.applicableSections && gppConsent.applicableSections.length !== 0) {
-        syncEndpoint = tryAppendQueryString(syncEndpoint, 'gpp_sid', filterSid(gppConsent.applicableSections));
+        syncEndpoint = tryAppendQueryString(syncEndpoint, 'gpp_sid', formatSid(gppConsent.applicableSections));
       }
     }
 
@@ -164,7 +177,7 @@ export const spec = {
   }
 }
 
-function filterSid(sid) {
+function formatSid(sid) {
   return sid.filter(element => {
     return Number.isInteger(element);
   })
@@ -183,7 +196,7 @@ function getBidFloor(bidRequest, imp) {
     try {
       const floorData = bidRequest.getFloor({
         currency: 'USD',
-        mediaType: '*',
+        mediaType: isValidVideo(bidRequest) ? 'video' : 'banner',
         size: '*'
       });
       if (floorData && floorData.currency === 'USD' && !isNaN(floorData.floor)) {
@@ -203,10 +216,11 @@ function setBidFloors(bidRequest, imp) {
     delete imp.bidfloorcur;
   } else if (imp.bidfloor) {
     utils.deepSetValue(imp, 'floor', imp.bidfloor);
+    delete imp.bidfloor;
     delete imp.bidfloorcur;
   }
 
-  if (!imp.bidfloor) {
+  if (!imp.floor) {
     const bidFloor = getBidFloor(bidRequest, imp);
 
     if (!isNaN(bidFloor)) {
@@ -247,10 +261,6 @@ function buildRequestUrl(bidRequests, bidderRequest) {
 
   if (bidderRequest && bidderRequest.uspConsent) {
     url = tryAppendQueryString(url, 'us_privacy', bidderRequest.uspConsent);
-  }
-
-  if (bidderRequest?.paapi?.enabled) {
-    url = tryAppendQueryString(url, 'fledge', bidderRequest.paapi.enabled);
   }
 
   if (config.getConfig('coppa') === true) {
@@ -341,35 +351,28 @@ function buildBidResponse(bid, bidderRequest) {
 
   if (bid.cpm !== 0 && bid.ad) {
     const nativeAd = parseNativeAd(breq, bid);
+    const baseBidResponse = {
+      requestId: breq.bidId,
+      cpm: bid.cpm,
+      netRevenue: true,
+      creativeId: creativeId,
+      dealId: dealId,
+      currency: 'USD',
+      ttl: BANNER_TIME_TO_LIVE,
+      tl_source: bid.tl_source,
+      meta: {}
+    };
     if (nativeAd) {
       bidResponse = {
-        requestId: breq.bidId,
-        cpm: bid.cpm,
-        netRevenue: true,
-        native: {
-          ortb: nativeAd
-        },
-        creativeId: creativeId,
-        dealId: dealId,
-        currency: 'USD',
-        ttl: BANNER_TIME_TO_LIVE,
-        tl_source: bid.tl_source,
-        meta: {}
-      }
+        ...baseBidResponse,
+        native: { ortb: nativeAd }
+      };
     } else {
       bidResponse = {
-        requestId: breq.bidId,
-        cpm: bid.cpm,
+        ...baseBidResponse,
         width: width,
         height: height,
-        netRevenue: true,
         ad: bid.ad,
-        creativeId: creativeId,
-        dealId: dealId,
-        currency: 'USD',
-        ttl: BANNER_TIME_TO_LIVE,
-        tl_source: bid.tl_source,
-        meta: {}
       };
     }
 

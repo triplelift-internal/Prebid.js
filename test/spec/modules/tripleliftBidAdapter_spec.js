@@ -389,7 +389,7 @@ describe('triplelift oRTB bid adapter', function () {
         {
           bidder: 'triplelift',
           params: {
-            inventoryCode: 'outstream_test',
+            inventoryCode: 'instream_test',
             floor: 1.0,
             video: {
               mimes: ['video/mp4'],
@@ -421,7 +421,7 @@ describe('triplelift oRTB bid adapter', function () {
           userId: {},
           schain,
         },
-        // banner and outream video and native
+        // banner and outstream video
         {
           bidder: 'triplelift',
           params: {
@@ -445,9 +445,6 @@ describe('triplelift oRTB bid adapter', function () {
                 [970, 250],
                 [1, 1]
               ]
-            },
-            native: {
-
             }
           },
           adUnitCode: 'adunit-code-instream',
@@ -704,6 +701,55 @@ describe('triplelift oRTB bid adapter', function () {
           auctionId: '1d1a030790a475',
           userId: {},
           schain,
+        },
+        // native and banner
+        {
+          bidder: 'triplelift',
+          params: {
+            inventoryCode: 'native_banner_test',
+            floor: 1.0
+          },
+          mediaTypes: {
+            native: {
+              ortb: {
+                assets: [{
+                  id: 1,
+                  required: 1,
+                  img: {
+                    type: 3,
+                    w: 150,
+                    h: 50,
+                  }
+                },
+                {
+                  id: 2,
+                  required: 1,
+                  title: {
+                    len: 80
+                  }
+                },
+                {
+                  id: 3,
+                  required: 1,
+                  data: {
+                    type: 1
+                  }
+                }]
+              }
+            },
+            banner: {
+              sizes: [
+                [728, 90],
+                [970, 250]
+              ]
+            }
+          },
+          adUnitCode: 'adunit-code-native',
+          bidId: '30b31c1838de1e',
+          bidderRequestId: '22edbae2733bf6',
+          auctionId: '1d1a030790a475',
+          userId: {},
+          schain,
         }
       ];
 
@@ -765,6 +811,69 @@ describe('triplelift oRTB bid adapter', function () {
       expect(requests[0]).to.exist.and.to.be.a('object');
     });
 
+    it('should be a post request and populate the payload', function() {
+      const requests = spec.buildRequests(bidRequests, bidderRequest);
+      const request = requests[0];
+      const payload = request.data;
+
+      expect(request).to.exist;
+      expect(request.method).to.equal('POST');
+      expect(request.url).to.equal('https://tlx.3lift.com/header/auction?lib=prebid&v=10.26.0-pre&referrer=https%3A%2F%2Fexamplereferer.com&gdpr=true&cmp_cs=BOONm0NOONm0NABABAENAa-AAAARh7______b9_3__7_9uz_Kv_K7Vf7nnG072lPVA9LTOQ6gEaY');
+      expect(request.data).to.exist.and.to.be.an('object');
+      // banner
+      expect(payload.imp[0].tagid).to.equal('12345');
+      expect(payload.imp[0].floor).to.equal(1.0);
+      expect(payload.imp[0].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}]);
+      // instream
+      expect(payload.imp[1].tagid).to.equal('instream_test');
+      expect(payload.imp[1].video).to.exist.and.to.be.a('object');
+      expect(payload.imp[1].video.plcmt).to.equal(1);
+      // banner and outstream video
+      expect(payload.imp[2]).to.have.property('video');
+      expect(payload.imp[2]).to.have.property('banner');
+      expect(payload.imp[2].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}, {w: 300, h: 250}, {w: 300, h: 600}]);
+      expect(payload.imp[2].video).to.deep.equal({'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream'});
+      // banner and incomplete video
+      expect(payload.imp[3]).to.not.have.property('video');
+      expect(payload.imp[3]).to.have.property('banner');
+      expect(payload.imp[3].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}, {w: 300, h: 250}, {w: 300, h: 600}]);
+      // incomplete mediatypes.banner and incomplete video
+      expect(payload.imp[4]).to.not.have.property('video');
+      expect(payload.imp[4]).to.have.property('banner');
+      expect(payload.imp[4].banner.format).to.deep.equal([{w: 300, h: 250}, {w: 300, h: 600}]);
+      // banner and instream video
+      expect(payload.imp[5]).to.not.have.property('banner');
+      expect(payload.imp[5]).to.have.property('video');
+      expect(payload.imp[5].video).to.exist.and.to.be.a('object');
+      expect(payload.imp[5].video.plcmt).to.equal(1);
+      // banner and outstream video and native
+      expect(payload.imp[6]).to.have.property('video');
+      expect(payload.imp[6]).to.have.property('banner');
+      expect(payload.imp[6].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}, {w: 300, h: 250}, {w: 300, h: 600}]);
+      expect(payload.imp[6].video).to.deep.equal({'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream'});
+      // outstream video only
+      expect(payload.imp[7]).to.have.property('video');
+      expect(payload.imp[7]).to.not.have.property('banner');
+      expect(payload.imp[7].video).to.deep.equal({'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream'});
+      // banner and incomplete outstream (missing size); video request is permitted so banner can still monetize
+      expect(payload.imp[8]).to.have.property('video');
+      expect(payload.imp[8]).to.have.property('banner');
+      expect(payload.imp[8].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}, {w: 300, h: 250}, {w: 300, h: 600}]);
+      expect(payload.imp[8].video).to.deep.equal({'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'context': 'outstream'});
+      // outstream new plcmt value
+      expect(payload.imp[13]).to.have.property('video');
+      expect(payload.imp[13].video).to.deep.equal({'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream', 'plcmt': 3});
+      // native only
+      expect(payload.imp[14]).to.have.property('native');
+      expect(payload.imp[14].native).to.have.property('assets');
+      expect(payload.imp[14].native.assets).to.have.length(3);
+      // native and banner
+      expect(payload.imp[15]).to.have.property('native');
+      expect(payload.imp[15]).to.have.property('banner');
+      expect(payload.imp[15].native).to.have.property('assets');
+      expect(payload.imp[15].banner.format).to.deep.equal([{w: 728, h: 90}, {w: 970, h: 250}]);
+    });
+
     it('should be able find video object from the instream request', function () {
       const requests = spec.buildRequests(bidRequests, bidderRequest);
       const request = requests[0];
@@ -805,6 +914,53 @@ describe('triplelift oRTB bid adapter', function () {
       expect(payload.imp[13]).to.have.property('video');
       expect(payload.imp[13].video).to.exist.and.to.be.a('object');
       expect(payload.imp[13].video.plcmt).to.equal(3);
+    });
+
+    it('should call getFloor with the correct parameters based on mediaType', function() {
+      bidRequests.forEach(request => {
+        request.getFloor = () => {};
+        sinon.spy(request, 'getFloor')
+      });
+
+      spec.buildRequests(bidRequests, bidderRequest);
+
+      // banner
+      expect(bidRequests[0].getFloor.calledWith({
+        currency: 'USD',
+        mediaType: 'banner',
+        size: '*'
+      })).to.be.true;
+
+      // instream
+      expect(bidRequests[1].getFloor.calledWith({
+        currency: 'USD',
+        mediaType: 'video',
+        size: '*'
+      })).to.be.true;
+
+      // banner and incomplete video (POST will only include banner)
+      expect(bidRequests[3].getFloor.calledWith({
+        currency: 'USD',
+        mediaType: 'banner',
+        size: '*'
+      })).to.be.true;
+
+      // banner and instream (POST will only include video)
+      expect(bidRequests[5].getFloor.calledWith({
+        currency: 'USD',
+        mediaType: 'video',
+        size: '*'
+      })).to.be.true;
+    });
+
+    it('should catch error if getFloor throws error', function() {
+      bidRequests[0].getFloor = () => {
+        throw new Error('An exception!');
+      };
+
+      spec.buildRequests(bidRequests, bidderRequest);
+
+      expect(logErrorSpy.calledOnce).to.equal(true);
     });
 
     it('should add tid to imp.ext if transactionId exists', function() {
@@ -1043,7 +1199,7 @@ describe('triplelift oRTB bid adapter', function () {
       const payload = request.data;
       expect(payload.source.ext.schain).to.deep.equal(schain);
     });
-    // CHECK THIS TEST
+
     it('should not create root level ext when schain is not present', function() {
       delete bidderRequest.ortb2;
       const request = spec.buildRequests(bidRequests, bidderRequest)[0];
@@ -1252,7 +1408,7 @@ describe('triplelift oRTB bid adapter', function () {
 
     it('should cast playbackmethod as an array if it is an integer and it exists', function() {
       const request = spec.buildRequests(bidRequests, bidderRequest)[0];
-      expect(request.data.imp[1].video.playbackmethod).to.deep.equal(5);
+      expect(request.data.imp[1].video.playbackmethod).to.deep.equal([5]);
     });
 
     it('should set playbackmethod as an array if it exists as an array', function() {
