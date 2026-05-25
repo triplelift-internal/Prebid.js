@@ -760,6 +760,29 @@ describe('triplelift adapter', function () {
       );
     });
 
+    it('should add sharedPublisherId to imp.ext from params', function() {
+      bidRequests[0].params.sharedPublisherId = 'pub_12345';
+      const request = tripleliftAdapterSpec.buildRequests(bidRequests, bidderRequest);
+      expect(request.data.imp[0].ext).to.exist;
+      expect(request.data.imp[0].ext.sharedPublisherId).to.equal('pub_12345');
+    });
+
+    it('should not add sharedPublisherId to imp.ext if not in params', function() {
+      // bidRequests[0] already has imp.ext from ortb2Imp, but no sharedPublisherId in params
+      // This verifies sharedPublisherId is specifically absent, not just that ext doesn't exist
+      const request = tripleliftAdapterSpec.buildRequests(bidRequests, bidderRequest);
+      expect(request.data.imp[0].ext).to.exist;
+      expect(request.data.imp[0].ext).to.not.have.property('sharedPublisherId');
+    });
+
+    it('should add sharedPublisherId to imp.ext alongside ortb2Imp.ext data', function() {
+      bidRequests[1].params.sharedPublisherId = 'pub_67890';
+      const request = tripleliftAdapterSpec.buildRequests(bidRequests, bidderRequest);
+      expect(request.data.imp[1].ext.sharedPublisherId).to.equal('pub_67890');
+      expect(request.data.imp[1].ext.tid).to.equal('173f49a8-7549-4218-a23c-e7ba59b47229');
+      expect(request.data.imp[1].ext.data).to.exist;
+    });
+
     it('should add tdid to the payload if included', function () {
       const tdid = '6bca7f6b-a98a-46c0-be05-6020f7604598';
       bidRequests[0].userIdAsEids = [
