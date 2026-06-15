@@ -1,4 +1,4 @@
-import * as utils from '../src/utils.js';
+import { deepAccess, logError, mergeDeep, logWarn, logInfo } from '../src/utils.js';
 import { BANNER, NATIVE, VIDEO } from '../src/mediaTypes.js';
 import { ortbConverter } from '../libraries/ortbConverter/converter.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
@@ -7,12 +7,13 @@ import { tryAppendQueryString } from '../libraries/urlUtils/urlUtils.js';
 import { config } from '../src/config.js';
 
 export const TL_ENDPOINT = 'https://tlx.3lift.com/header/auction?';
-export let SYNC_ENDPOINT = 'https://eb2.3lift.com/sync?';
+export const SYNC_ENDPOINT = 'https://eb2.3lift.com/sync?';
 const BIDDER_CODE = 'triplelift';
 const BANNER_TIME_TO_LIVE = 300;
 const VIDEO_TIME_TO_LIVE = 3600;
 let gdprApplies = null;
 let consentString = null;
+const DEFAULT_GZIP_ENABLED = true;
 
 export const storage = getStorageManager({bidderCode: BIDDER_CODE});
 
@@ -27,9 +28,15 @@ const converter = ortbConverter({
     if (bidRequest.params.inventoryCode) {
       imp.tagid = bidRequest.params.inventoryCode;
     }
+    if (bidRequest.params.parentId || bidRequest.params.publisherId) {
+      imp.ext = imp.ext || {};
+      if (bidRequest.params.parentId) imp.ext.parentId = bidRequest.params.parentId;
+      if (bidRequest.params.publisherId) imp.ext.publisherId = bidRequest.params.publisherId;
+    }
+
     if (isValidVideo(bidRequest)) {
-      const mediaTypesVideo = utils.deepAccess(bidRequest, 'mediaTypes.video');
-      const videoParams = utils.deepAccess(bidRequest, 'params.video') || {};
+      const mediaTypesVideo = deepAccess(bidRequest, 'mediaTypes.video');
+      const videoParams = deepAccess(bidRequest, 'params.video') || {};
 
       const video = {...mediaTypesVideo, ...videoParams};
 
@@ -47,7 +54,7 @@ const converter = ortbConverter({
         video.playbackmethod = [video.playbackmethod];
       }
 
-      utils.mergeDeep(imp, {
+      mergeDeep(imp, {
         video: video
       });
     }
@@ -55,16 +62,16 @@ const converter = ortbConverter({
       // Remove banner set by the default ortbConverter processor if instream
       delete imp.banner;
     } else if (isBannerRequest(bidRequest)) {
-      utils.mergeDeep(imp, {
+      mergeDeep(imp, {
         banner: {
           format: formatSizes(bidRequest.sizes)
         }
       });
     }
     if (isNativeRequest(bidRequest)) {
-      const nativeParams = utils.deepAccess(bidRequest, 'mediaTypes.native');
+      const nativeParams = deepAccess(bidRequest, 'mediaTypes.native');
       if (nativeParams && nativeParams.ortb) {
-        utils.mergeDeep(imp, {
+        mergeDeep(imp, {
           native: nativeParams.ortb
         });
       }
@@ -78,17 +85,17 @@ const converter = ortbConverter({
     const req = buildRequest(imps, bidderRequest, context);
 
     const bid = context.bidRequests[0];
-    const ortb2Eids = utils.deepAccess(bid, 'ortb2.user.ext.eids');
-    const userIdEids = utils.deepAccess(bid, 'userIdAsEids');
+    const ortb2Eids = deepAccess(bid, 'ortb2.user.ext.eids');
+    const userIdEids = deepAccess(bid, 'userIdAsEids');
     const eids = Array.isArray(ortb2Eids) && ortb2Eids.length
       ? ortb2Eids : (Array.isArray(userIdEids) && userIdEids.length ? userIdEids : null);
     if (eids) {
-      utils.mergeDeep(req, { user: { ext: { eids } } });
+      mergeDeep(req, { user: { ext: { eids } } });
     }
 
     const opeCloud = getOpeCloud();
     if (opeCloud) {
-      utils.mergeDeep(req, {
+      mergeDeep(req, {
         user: {
           data: [{
             name: 'www.1plusx.com',
@@ -107,7 +114,7 @@ export const spec = {
   gvlid: 28,
   supportedMediaTypes: [BANNER, VIDEO, NATIVE],
   isBidRequestValid: function (bid) {
-    return bid.params?.inventoryCode !== undefined;
+    return bid?.params?.inventoryCode !== undefined && bid?.params?.parentId !== undefined;
   },
   buildRequests: function(bidRequests, bidderRequest) {
     const data = converter.toORTB({bidRequests, bidderRequest});
@@ -117,15 +124,18 @@ export const spec = {
     return [{
       method: 'POST',
       url: requestUrl,
-      data
+      data,
+      bidderRequest,
+      options: {
+        endpointCompression: getGzipSetting()
+      },
     }]
   },
   interpretResponse: function(response, {bidderRequest}) {
-    let bids = response?.body?.bids || [];
+    const bids = response?.body?.bids || [];
 
-    bids = bids.map(bid => buildBidResponse(bid, bidderRequest));
-
-    return bids;
+    const reqBids = bidderRequest?.bids || [];
+    return bids.map(bid => buildBidResponse(bid, reqBids));
   },
   getUserSyncs: function(syncOptions, responses, gdprConsent, usPrivacy, gppConsent) {
     const syncType = getSyncType(syncOptions);
@@ -204,11 +214,11 @@ function getBidFloor(bidRequest) {
         floor = parseFloat(floorData.floor);
       }
     } catch (e) {
-      utils.logError('Triplelift: error calling getFloor: ', e);
+      logError('Triplelift: error calling getFloor: ', e);
     }
   }
 
-  return floor !== null ? floor : parseFloat(utils.deepAccess(bidRequest, 'params.floor'));
+  return floor !== null ? floor : parseFloat(deepAccess(bidRequest, 'params.floor'));
 }
 
 function setBidFloors(bidRequest, imp) {
@@ -282,9 +292,31 @@ function getOpeCloud() {
   try {
     return JSON.parse(opeCloud);
   } catch (err) {
-    utils.logError('Triplelift: error parsing opeCloud JSON: ', err);
+    logError('Triplelift: error parsing opeCloud JSON: ', err);
     return null;
   }
+}
+
+function getGzipSetting() {
+  try {
+    const gzipSetting = deepAccess(config.getBidderConfig(), 'triplelift.gzipEnabled');
+
+    if (gzipSetting !== undefined) {
+      const gzipValue = String(gzipSetting).toLowerCase().trim();
+      if (gzipValue === 'true' || gzipValue === 'false') {
+        const parsedValue = gzipValue === 'true';
+        logInfo('Triplelift: Using bidder-specific gzipEnabled setting:', parsedValue);
+        return parsedValue;
+      }
+
+      logWarn('Triplelift: Invalid gzipEnabled value in bidder config:', gzipSetting);
+    }
+  } catch (e) {
+    logWarn('Triplelift: Error accessing bidder config:', e);
+  }
+
+  logInfo('Triplelift: Using default gzipEnabled setting:', DEFAULT_GZIP_ENABLED);
+  return DEFAULT_GZIP_ENABLED;
 }
 
 function formatSizes(sizes) {
@@ -302,7 +334,7 @@ function isValidSize(size) {
 }
 
 function getVideoContext(bidRequest) {
-  const context = utils.deepAccess(bidRequest, 'mediaTypes.video.context');
+  const context = deepAccess(bidRequest, 'mediaTypes.video.context');
   return typeof context === 'string' ? context.toLowerCase() : null;
 }
 
@@ -311,11 +343,11 @@ function isValidVideo(bidRequest) {
 }
 
 function isNativeRequest(bidRequest) {
-  return utils.deepAccess(bidRequest, 'mediaTypes.native.ortb');
+  return deepAccess(bidRequest, 'mediaTypes.native.ortb');
 }
 
 function isBannerRequest(bidRequest) {
-  return utils.deepAccess(bidRequest, 'mediaTypes.banner');
+  return deepAccess(bidRequest, 'mediaTypes.banner');
 }
 
 function isInstreamRequest(bidRequest) {
@@ -342,23 +374,28 @@ function parseNativeAd(bidRequest, bid) {
     const parsedAd = JSON.parse(nativeAd);
     return parsedAd.assets ? parsedAd : null;
   } catch (e) {
-    utils.logError('Triplelift: error parsing native ad JSON: ', e);
+    logError('Triplelift: error parsing native ad JSON: ', e);
     return null;
   }
 }
 
-function buildBidResponse(bid, bidderRequest) {
+function buildBidResponse(bid, reqBids) {
   let bidResponse = {};
   const width = bid.width || 1;
   const height = bid.height || 1;
   const dealId = bid.deal_id || '';
   const creativeId = bid.crid || '';
 
-  const breq = bidderRequest.bids?.[bid.imp_id];
-  if (!breq) return {};
+  const impId = String(bid.imp_id);
+  const breq = reqBids.find(b => String(b.bidId) === impId);
+  if (!breq) {
+    logWarn(`Triplelift: no matching bid request for impression ID: ${bid.imp_id}`);
+    return {};
+  }
 
   if (bid.cpm !== 0 && bid.ad) {
     const nativeAd = parseNativeAd(breq, bid);
+    const isVideo = isVideoRequest(breq) && bid.media_type === 'video';
     const baseBidResponse = {
       requestId: breq.bidId,
       cpm: bid.cpm,
@@ -384,7 +421,7 @@ function buildBidResponse(bid, bidderRequest) {
       }
     }
 
-    if (isVideoRequest(breq) && bid.media_type === 'video') {
+    if (isVideo) {
       bidResponse.vastXml = bid.ad;
       bidResponse.mediaType = 'video';
       bidResponse.ttl = VIDEO_TIME_TO_LIVE;
@@ -399,15 +436,18 @@ function buildBidResponse(bid, bidderRequest) {
     }
 
     if (bid.tl_source === 'hdx') {
-      if (isVideoRequest(breq) && bid.media_type === 'video') {
-        bidResponse.meta.mediaType = 'video'
-      } else {
-        bidResponse.meta.mediaType = 'banner';
-      }
+      bidResponse.meta.mediaType = isVideo ? 'video' : 'banner';
     }
 
     if (bid.tl_source === 'tlx') {
-      bidResponse.meta.mediaType = 'native';
+      if (nativeAd) {
+        bidResponse.meta.mediaType = 'native';
+        bidResponse.mediaType = 'native';
+      } else if (isVideo) {
+        bidResponse.meta.mediaType = 'video';
+      } else {
+        bidResponse.meta.mediaType = 'banner';
+      }
     }
 
     if (creativeId) {
