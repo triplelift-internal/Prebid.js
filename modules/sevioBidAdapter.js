@@ -1,9 +1,9 @@
 import * as utils from "../src/utils.js";
-import { detectWalletsPresence} from "../libraries/cryptoUtils/wallets.js";
+import { detectWalletsPresence } from "../libraries/cryptoUtils/wallets.js";
 import { registerBidder } from "../src/adapters/bidderFactory.js";
 import { BANNER, NATIVE } from "../src/mediaTypes.js";
 import { config } from "../src/config.js";
-import {getDomComplexity, getPageDescription, getPageTitle} from "../libraries/fpdUtils/pageInfo.js";
+import { getDomComplexity, getPageDescription, getPageTitle } from "../libraries/fpdUtils/pageInfo.js";
 import * as converter from '../libraries/ortbConverter/converter.js';
 
 const PREBID_VERSION = '$prebid.version$';
@@ -23,7 +23,7 @@ const detectAdType = (bid) =>
 
 const getReferrerInfo = (bidderRequest) => {
   return bidderRequest?.refererInfo?.page ?? '';
-}
+};
 
 const normalizeKeywords = (input) => {
   if (!input) return [];
@@ -156,7 +156,7 @@ const parseNativeAd = function (bid) {
     utils.logWarn('Invalid native JSON', e);
     return null;
   }
-}
+};
 export const spec = {
   code: BIDDER_CODE,
   gvlid: GVLID,
@@ -277,7 +277,7 @@ export const spec = {
             referenceId: bidRequest.params.referenceId,
             tagId: bidRequest.params.zone,
             type: detectAdType(bidRequest),
-            ...(isNative && { nativeRequest: { ver: "1.2", assets: processedAssets || {}} })
+            ...(isNative && { nativeRequest: { ver: "1.2", assets: processedAssets || {} } })
           },
         ],
         keywords: {

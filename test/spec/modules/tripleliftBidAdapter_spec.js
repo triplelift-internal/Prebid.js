@@ -17,7 +17,7 @@ import 'modules/consentManagementUsp.js';
 import prebid from 'package.json';
 
 const GDPR_CONSENT_STR = 'BOONm0NOONm0NABABAENAa-AAAARh7______b9_3__7_9uz_Kv_K7Vf7nnG072lPVA9LTOQ6gEaY';
-const GPP_CONSENT_STR = 'DBACNYA~CPXxRfAPXxRfAAfKABENB-CgAAAAAAAAAAYgAAAAAAAA~1YNN'
+const GPP_CONSENT_STR = 'DBACNYA~CPXxRfAPXxRfAAfKABENB-CgAAAAAAAAAAYgAAAAAAAA~1YNN';
 
 describe('triplelift oRTB bid adapter', function () {
   const adapter = newBidder(spec);
@@ -840,7 +840,7 @@ describe('triplelift oRTB bid adapter', function () {
       // incomplete mediatypes.banner and incomplete video
       expect(payload.imp[4]).to.not.have.property('video');
       expect(payload.imp[4]).to.have.property('banner');
-      expect(payload.imp[4].banner.format).to.deep.equal([{w: 300, h: 250}, {w: 300, h: 600}]);
+      expect(payload.imp[4].banner.format).to.deep.equal([{ w: 300, h: 250 }, { w: 300, h: 600 }]);
       // banner and instream video
       expect(payload.imp[5]).to.not.have.property('banner');
       expect(payload.imp[5]).to.have.property('video');
@@ -854,7 +854,7 @@ describe('triplelift oRTB bid adapter', function () {
       // outstream video only
       expect(payload.imp[7]).to.have.property('video');
       expect(payload.imp[7]).to.not.have.property('banner');
-      expect(payload.imp[7].video).to.deep.equal({'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream'});
+      expect(payload.imp[7].video).to.deep.equal({ 'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream' });
       // banner and incomplete outstream (missing size); video request is permitted so banner can still monetize
       expect(payload.imp[8]).to.have.property('video');
       expect(payload.imp[8]).to.have.property('banner');
@@ -1086,7 +1086,7 @@ describe('triplelift oRTB bid adapter', function () {
       const request = spec.buildRequests(bidRequests, bidderRequest)[0];
       const payload = request.data;
       expect(payload).to.exist;
-      expect(payload.user).to.deep.equal({ext: {eids: [{source: 'criteo.com', uids: [{id: id, atype: 1, ext: {rtiPartner: 'criteoId'}}]}]}});
+      expect(payload.user).to.deep.equal({ ext: { eids: [{ source: 'criteo.com', uids: [{ id: id, atype: 1, ext: { rtiPartner: 'criteoId' } }] }] } });
     });
 
     it('should add tdid and criteoId to the payload if both are included', function () {
@@ -1157,9 +1157,9 @@ describe('triplelift oRTB bid adapter', function () {
       const url = request.url;
       expect(url).to.exist;
       expect(url).to.be.a('string');
-      expect(url).to.match(/(?:tlx.3lift.com\/header\/auction)/)
-      expect(url).to.match(/(?:lib=prebid)/)
-      expect(url).to.match(new RegExp('(?:' + prebid.version + ')'))
+      expect(url).to.match(/(?:tlx.3lift.com\/header\/auction)/);
+      expect(url).to.match(/(?:lib=prebid)/);
+      expect(url).to.match(new RegExp('(?:' + prebid.version + ')'));
       expect(url).to.match(/(?:referrer)/);
     });
 
@@ -1168,7 +1168,7 @@ describe('triplelift oRTB bid adapter', function () {
       const request = spec.buildRequests(bidRequests, bidderRequest)[0];
       const url = request.url;
       expect(url).to.match(/(\?|&)referrer=https%3A%2F%2Ftopmostlocation.com%3Ffoo%3Dbar/);
-      delete bidderRequest.refererInfo.page
+      delete bidderRequest.refererInfo.page;
     });
 
     it('should return us_privacy param when CCPA info is available', function() {
@@ -1355,7 +1355,7 @@ describe('triplelift oRTB bid adapter', function () {
             { name: 'dataprovider.com', ext: { segtax: 4 }, segment: [{ id: '1' }] }
           ]
         }
-      }
+      };
       sandbox.stub(storage, 'getDataFromLocalStorage').callsFake(() => '{"kid":1,"s":"ySRdArquXuBolr/cVv0UNqrJhTO4QZsbNH/t+2kR3gXjbA==","t":"/yVtBrquXuBolr/cVv0UNtx1mssdLYeKFhWFI3Dq1dJnug=="}');
       const request = spec.buildRequests(bidRequests, {...bidderRequest, ortb2})[0];
       const { data: payload } = request;
@@ -1381,7 +1381,7 @@ describe('triplelift oRTB bid adapter', function () {
             { name: 'dataprovider.com', ext: { segtax: 4 }, segment: [{ id: '1' }] }
           ]
         }
-      }
+      };
       sandbox.stub(storage, 'getDataFromLocalStorage').callsFake(() => null);
       const request = spec.buildRequests(bidRequests, {...bidderRequest, ortb2})[0];
       const { data: payload } = request;
@@ -1403,7 +1403,7 @@ describe('triplelift oRTB bid adapter', function () {
       expect(request.data.regs).to.deep.equal({
         'gpp': 'BOJ/P2HOJ/P2HABABMAAAAAZ+A==',
         'gpp_sid': [7]
-      })
+      });
     });
 
     it('should cast playbackmethod as an array if it is an integer and it exists', function() {
@@ -1616,7 +1616,7 @@ describe('triplelift oRTB bid adapter', function () {
           gdprApplies: true
         }
       };
-    })
+    });
 
     it('should get correct bid response', function () {
       const expectedResponse = [
@@ -1670,7 +1670,7 @@ describe('triplelift oRTB bid adapter', function () {
       expect(result[2].vastXml).to.include('aid=148508128401385324170&inv_code=testing_mobile_outstream');
       // banner bid on banner+outstream request
       expect(result[3].meta.mediaType).to.equal('banner');
-    })
+    });
 
     it('should return multiple responses to support SRA', function () {
       const result = spec.interpretResponse(response, {bidderRequest});

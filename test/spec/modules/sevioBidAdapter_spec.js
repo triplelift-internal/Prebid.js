@@ -133,7 +133,7 @@ describe('sevioBidAdapter', function () {
         'ttl': 3000,
         'ad': '<html lang="en"><h3>I am an ad</h3></html>',
         'mediaType': 'banner',
-        'meta': {'advertiserDomains': ['none.com']}
+        'meta': { 'advertiserDomains': ['none.com'] }
       }];
       let result = spec.interpretResponse(serverResponse, bidRequest[0]);
 
@@ -204,7 +204,7 @@ describe('sevioBidAdapter', function () {
 
       let result = spec.interpretResponse(serverResponseNative);
       expect(Object.keys(result)).to.deep.equal(Object.keys(expectedResponseNative));
-    })
+    });
 
     it('should use bidRequest.params.keywords when provided', function () {
       const singleBidRequest = [
@@ -370,7 +370,8 @@ describe('sevioBidAdapter', function () {
 
       const original = perfTop.getEntriesByType;
       Object.defineProperty(perfTop, 'getEntriesByType', {
-        configurable: true, writable: true,
+        configurable: true,
+        writable: true,
         value: (type) => (type === 'navigation' ? [{ responseStart: 152, requestStart: 100 }] : [])
       });
 

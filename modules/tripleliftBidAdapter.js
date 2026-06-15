@@ -402,7 +402,7 @@ function buildBidResponse(bid, bidderRequest) {
       if (isVideoRequest(breq) && bid.media_type === 'video') {
         bidResponse.meta.mediaType = 'video'
       } else {
-        bidResponse.meta.mediaType = 'banner'
+        bidResponse.meta.mediaType = 'banner';
       }
     }
 
