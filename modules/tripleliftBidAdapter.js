@@ -15,7 +15,7 @@ let gdprApplies = null;
 let consentString = null;
 const DEFAULT_GZIP_ENABLED = true;
 
-export const storage = getStorageManager({bidderCode: BIDDER_CODE});
+export const storage = getStorageManager({ bidderCode: BIDDER_CODE });
 
 const converter = ortbConverter({
   context: {
@@ -38,7 +38,7 @@ const converter = ortbConverter({
       const mediaTypesVideo = deepAccess(bidRequest, 'mediaTypes.video');
       const videoParams = deepAccess(bidRequest, 'params.video') || {};
 
-      const video = {...mediaTypesVideo, ...videoParams};
+      const video = { ...mediaTypesVideo, ...videoParams };
 
       if ((video.w == null || video.h == null) && video.playerSize) {
         // playerSize can be a single size [w, h] or array of sizes [[w, h], ...]
@@ -117,7 +117,7 @@ export const spec = {
     return bid?.params?.inventoryCode !== undefined && bid?.params?.parentId !== undefined;
   },
   buildRequests: function(bidRequests, bidderRequest) {
-    const data = converter.toORTB({bidRequests, bidderRequest});
+    const data = converter.toORTB({ bidRequests, bidderRequest });
 
     const requestUrl = buildRequestUrl(bidRequests, bidderRequest);
 
@@ -129,9 +129,9 @@ export const spec = {
       options: {
         endpointCompression: getGzipSetting()
       },
-    }]
+    }];
   },
-  interpretResponse: function(response, {bidderRequest}) {
+  interpretResponse: function(response, { bidderRequest }) {
     const bids = response?.body?.bids || [];
 
     const reqBids = bidderRequest?.bids || [];
@@ -186,7 +186,7 @@ export const spec = {
       url: syncEndpoint
     }];
   }
-}
+};
 
 function formatSid(sid) {
   return sid.filter(element => {
@@ -406,19 +406,19 @@ function buildBidResponse(bid, reqBids) {
       ttl: BANNER_TIME_TO_LIVE,
       tl_source: bid.tl_source,
       meta: {}
-    }
+    };
     if (nativeAd) {
       bidResponse = {
         ...baseBidResponse,
         native: { ortb: nativeAd }
-      }
+      };
     } else {
       bidResponse = {
         ...baseBidResponse,
         width: width,
         height: height,
         ad: bid.ad,
-      }
+      };
     }
 
     if (isVideo) {

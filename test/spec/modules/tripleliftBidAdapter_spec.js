@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-// eslint-disable-next-line import/extensions
+
 import { getGlobal } from "../../../src/prebidGlobal";
 import { spec, storage } from 'modules/tripleliftBidAdapter.js';
 import { newBidder } from 'src/adapters/bidderFactory.js';
@@ -7,7 +7,7 @@ import { config } from 'src/config.js';
 import * as utils from 'src/utils.js';
 
 // load modules that register oRTB processors
-import 'src/prebid.js'
+import 'src/prebid.js';
 import 'modules/currency.js';
 import 'modules/userId/index.js';
 import 'modules/multibid/index.js';
@@ -131,7 +131,7 @@ describe('triplelift oRTB bid adapter', function () {
       'bidderRequestId': '22edbae2733bf6',
       'auctionId': '1d1a030790a475',
     };
-  })
+  });
 
   describe('inherited functions', function () {
     it('exists and is a function', function () {
@@ -196,7 +196,7 @@ describe('triplelift oRTB bid adapter', function () {
     });
 
     it('should return false when params object is missing', function () {
-      expect(spec.isBidRequestValid({bidder: 'triplelift'})).to.equal(false);
+      expect(spec.isBidRequestValid({ bidder: 'triplelift' })).to.equal(false);
     });
 
     it('should return false when bid is null or undefined', function () {
@@ -898,16 +898,21 @@ describe('triplelift oRTB bid adapter', function () {
       const request = requests[0];
       const payload = request.data;
 
+      // pbjsInstance.version is 'v$prebid.version$' (see src/prebid.ts); the adapter
+      // writes the version to the URL without the leading 'v', so strip it here so this
+      // assertion does not drift with each Prebid release.
+      const pbVersion = getGlobal().version.replace(/^v/, '');
+
       expect(request).to.exist;
       expect(request.method).to.equal('POST');
-      expect(request.url).to.equal('https://tlx.3lift.com/header/auction?lib=prebid&v=10.26.0-pre&referrer=https%3A%2F%2Fexamplereferer.com&gdpr=true&cmp_cs=BOONm0NOONm0NABABAENAa-AAAARh7______b9_3__7_9uz_Kv_K7Vf7nnG072lPVA9LTOQ6gEaY');
+      expect(request.url).to.equal(`https://tlx.3lift.com/header/auction?lib=prebid&v=${pbVersion}&referrer=https%3A%2F%2Fexamplereferer.com&gdpr=true&cmp_cs=BOONm0NOONm0NABABAENAa-AAAARh7______b9_3__7_9uz_Kv_K7Vf7nnG072lPVA9LTOQ6gEaY`);
       expect(request.data).to.exist.and.to.be.an('object');
       // banner
       expect(payload.imp[0].tagid).to.equal('12345');
       expect(payload.imp[0].ext.parentId).to.equal('parent_test');
       expect(payload.imp[0].ext.publisherId).to.equal('publisher_test');
       expect(payload.imp[0].floor).to.equal(1.0);
-      expect(payload.imp[0].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}]);
+      expect(payload.imp[0].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }]);
       // instream
       expect(payload.imp[1].tagid).to.equal('instream_test');
       expect(payload.imp[1].ext.parentId).to.equal('parent_test');
@@ -917,12 +922,12 @@ describe('triplelift oRTB bid adapter', function () {
       // banner and outstream video
       expect(payload.imp[2]).to.have.property('video');
       expect(payload.imp[2]).to.have.property('banner');
-      expect(payload.imp[2].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}, {w: 300, h: 250}, {w: 300, h: 600}]);
-      expect(payload.imp[2].video).to.deep.equal({'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream'});
+      expect(payload.imp[2].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }, { w: 300, h: 250 }, { w: 300, h: 600 }]);
+      expect(payload.imp[2].video).to.deep.equal({ 'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream' });
       // banner and incomplete video
       expect(payload.imp[3]).to.not.have.property('video');
       expect(payload.imp[3]).to.have.property('banner');
-      expect(payload.imp[3].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}, {w: 300, h: 250}, {w: 300, h: 600}]);
+      expect(payload.imp[3].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }, { w: 300, h: 250 }, { w: 300, h: 600 }]);
       // incomplete mediatypes.banner and incomplete video
       expect(payload.imp[4]).to.not.have.property('video');
       expect(payload.imp[4]).to.have.property('banner');
@@ -935,8 +940,8 @@ describe('triplelift oRTB bid adapter', function () {
       // banner and outstream video and native
       expect(payload.imp[6]).to.have.property('video');
       expect(payload.imp[6]).to.have.property('banner');
-      expect(payload.imp[6].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}, {w: 300, h: 250}, {w: 300, h: 600}]);
-      expect(payload.imp[6].video).to.deep.equal({'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream'});
+      expect(payload.imp[6].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }, { w: 300, h: 250 }, { w: 300, h: 600 }]);
+      expect(payload.imp[6].video).to.deep.equal({ 'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream' });
       // outstream video only
       expect(payload.imp[7]).to.have.property('video');
       expect(payload.imp[7]).to.not.have.property('banner');
@@ -944,11 +949,11 @@ describe('triplelift oRTB bid adapter', function () {
       // banner and incomplete outstream (missing size); video request is permitted so banner can still monetize
       expect(payload.imp[8]).to.have.property('video');
       expect(payload.imp[8]).to.have.property('banner');
-      expect(payload.imp[8].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}, {w: 300, h: 250}, {w: 300, h: 600}]);
-      expect(payload.imp[8].video).to.deep.equal({'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'context': 'outstream'});
+      expect(payload.imp[8].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }, { w: 300, h: 250 }, { w: 300, h: 600 }]);
+      expect(payload.imp[8].video).to.deep.equal({ 'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'context': 'outstream' });
       // outstream new plcmt value
       expect(payload.imp[13]).to.have.property('video');
-      expect(payload.imp[13].video).to.deep.equal({'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream', 'plcmt': 3});
+      expect(payload.imp[13].video).to.deep.equal({ 'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream', 'plcmt': 3 });
       // native only
       expect(payload.imp[14].ext.parentId).to.equal('parent_test');
       expect(payload.imp[14].ext.publisherId).to.equal('publisher_test');
@@ -959,7 +964,7 @@ describe('triplelift oRTB bid adapter', function () {
       expect(payload.imp[15]).to.have.property('native');
       expect(payload.imp[15]).to.have.property('banner');
       expect(payload.imp[15].native).to.have.property('assets');
-      expect(payload.imp[15].banner.format).to.deep.equal([{w: 728, h: 90}, {w: 970, h: 250}]);
+      expect(payload.imp[15].banner.format).to.deep.equal([{ w: 728, h: 90 }, { w: 970, h: 250 }]);
     });
 
     it('should be able find video object from the instream request', function () {
@@ -971,7 +976,7 @@ describe('triplelift oRTB bid adapter', function () {
     it('should only parse sizes that are of the proper length and format', function () {
       const request = spec.buildRequests(bidRequests, bidderRequest)[0];
       expect(request.data.imp[0].banner.format).to.have.length(2);
-      expect(request.data.imp[0].banner.format).to.deep.equal([{w: 970, h: 250}, {w: 1, h: 1}]);
+      expect(request.data.imp[0].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }]);
     });
 
     it('should check for valid outstream placement values', function () {
@@ -1007,7 +1012,7 @@ describe('triplelift oRTB bid adapter', function () {
     it('should call getFloor with the correct parameters based on mediaType', function() {
       bidRequests.forEach(request => {
         request.getFloor = () => {};
-        sinon.spy(request, 'getFloor')
+        sinon.spy(request, 'getFloor');
       });
 
       spec.buildRequests(bidRequests, bidderRequest);
@@ -1183,7 +1188,7 @@ describe('triplelift oRTB bid adapter', function () {
       const request = spec.buildRequests(bidRequests, bidderRequest)[0];
       const payload = request.data;
       expect(payload).to.exist;
-      expect(payload.user).to.deep.equal({ ext: {eids: [{source: 'adserver.org', uids: [{id: tdid, atype: 1, ext: {rtiPartner: 'TDID'}}]}]}});
+      expect(payload.user).to.deep.equal({ ext: { eids: [{ source: 'adserver.org', uids: [{ id: tdid, atype: 1, ext: { rtiPartner: 'TDID' } }] }] } });
     });
 
     it('should add criteoId to the payload if included', function () {
@@ -1242,30 +1247,32 @@ describe('triplelift oRTB bid adapter', function () {
       const payload = request.data;
 
       expect(payload).to.exist;
-      expect(payload.user).to.deep.equal({ext: {
-        eids: [
-          {
-            source: 'adserver.org',
-            uids: [
-              {
-                id: tdid,
-                atype: 1,
-                ext: { rtiPartner: 'TDID' }
-              }
-            ],
-          },
-          {
-            source: 'criteo.com',
-            uids: [
-              {
-                id: criteoId,
-                atype: 1,
-                ext: { rtiPartner: 'criteoId' }
-              }
-            ]
-          }
-        ]
-      }});
+      expect(payload.user).to.deep.equal({
+        ext: {
+          eids: [
+            {
+              source: 'adserver.org',
+              uids: [
+                {
+                  id: tdid,
+                  atype: 1,
+                  ext: { rtiPartner: 'TDID' }
+                }
+              ],
+            },
+            {
+              source: 'criteo.com',
+              uids: [
+                {
+                  id: criteoId,
+                  atype: 1,
+                  ext: { rtiPartner: 'criteoId' }
+                }
+              ]
+            }
+          ]
+        }
+      });
 
       expect(payload.user.ext.eids).to.be.an('array');
       expect(payload.user.ext.eids).to.have.lengthOf(2);
@@ -1283,7 +1290,7 @@ describe('triplelift oRTB bid adapter', function () {
     });
 
     it('should use refererInfo.page for referrer', function () {
-      bidderRequest.refererInfo.page = 'https://topmostlocation.com?foo=bar'
+      bidderRequest.refererInfo.page = 'https://topmostlocation.com?foo=bar';
       const request = spec.buildRequests(bidRequests, bidderRequest)[0];
       const url = request.url;
       expect(url).to.match(/(\?|&)referrer=https%3A%2F%2Ftopmostlocation.com%3Ffoo%3Dbar/);
@@ -1389,7 +1396,7 @@ describe('triplelift oRTB bid adapter', function () {
         }
       };
 
-      const request = spec.buildRequests(bidRequests, {...bidderRequest, ortb2})[0];
+      const request = spec.buildRequests(bidRequests, { ...bidderRequest, ortb2 })[0];
       const { data: payload } = request;
       expect(payload.site).to.exist;
       expect(payload.user).to.exist;
@@ -1433,8 +1440,8 @@ describe('triplelift oRTB bid adapter', function () {
             }
           }
         }
-      }
-      const request = spec.buildRequests(bidRequests, {...bidderRequest, ortb2})[0];
+      };
+      const request = spec.buildRequests(bidRequests, { ...bidderRequest, ortb2 })[0];
       const { data: payload } = request;
       expect(payload.user).to.not.exist;
       expect(payload.site.ext.data).to.haveOwnProperty('category');
@@ -1464,7 +1471,7 @@ describe('triplelift oRTB bid adapter', function () {
           }
         }
       ]
-      )
+      );
     });
 
     it('should append 1PlusX data to existing user.data entries if localStorage is available', function() {
@@ -1476,7 +1483,7 @@ describe('triplelift oRTB bid adapter', function () {
         }
       };
       sandbox.stub(storage, 'getDataFromLocalStorage').callsFake(() => '{"kid":1,"s":"ySRdArquXuBolr/cVv0UNqrJhTO4QZsbNH/t+2kR3gXjbA==","t":"/yVtBrquXuBolr/cVv0UNtx1mssdLYeKFhWFI3Dq1dJnug=="}');
-      const request = spec.buildRequests(bidRequests, {...bidderRequest, ortb2})[0];
+      const request = spec.buildRequests(bidRequests, { ...bidderRequest, ortb2 })[0];
       const { data: payload } = request;
       expect(payload.user).to.deep.equal({
         'data': [
@@ -1490,7 +1497,7 @@ describe('triplelift oRTB bid adapter', function () {
             }
           }
         ]
-      })
+      });
     });
 
     it('should not append anything if getDataFromLocalStorage returns null', function() {
@@ -1502,13 +1509,13 @@ describe('triplelift oRTB bid adapter', function () {
         }
       };
       sandbox.stub(storage, 'getDataFromLocalStorage').callsFake(() => null);
-      const request = spec.buildRequests(bidRequests, {...bidderRequest, ortb2})[0];
+      const request = spec.buildRequests(bidRequests, { ...bidderRequest, ortb2 })[0];
       const { data: payload } = request;
       expect(payload.user).to.deep.equal({
         'data': [
           { 'name': 'dataprovider.com', 'ext': { 'segtax': 4 }, 'segment': [{ 'id': '1' }] },
         ]
-      })
+      });
     });
 
     it('should add gpp consent data to bid request object if gpp data exists', function() {
@@ -1517,7 +1524,7 @@ describe('triplelift oRTB bid adapter', function () {
           'gpp': 'BOJ/P2HOJ/P2HABABMAAAAAZ+A==',
           'gpp_sid': [7]
         }
-      }
+      };
       const request = spec.buildRequests(bidRequests, bidderRequest)[0];
       expect(request.data.regs).to.deep.equal({
         'gpp': 'BOJ/P2HOJ/P2HABABMAAAAAZ+A==',
@@ -1772,7 +1779,7 @@ describe('triplelift oRTB bid adapter', function () {
           meta: {}
         }
       ];
-      const result = spec.interpretResponse(response, {bidderRequest});
+      const result = spec.interpretResponse(response, { bidderRequest });
       expect(result).to.have.length(4);
       expect(Object.keys(result[0])).to.have.members(Object.keys(expectedResponse[0]));
       expect(Object.keys(result[1])).to.have.members(Object.keys(expectedResponse[1]));
@@ -1781,7 +1788,7 @@ describe('triplelift oRTB bid adapter', function () {
     });
 
     it('should identify format of bid and respond accordingly', function() {
-      const result = spec.interpretResponse(response, {bidderRequest});
+      const result = spec.interpretResponse(response, { bidderRequest });
       expect(result[0].meta.mediaType).to.equal('banner');
       expect(result[1].mediaType).to.equal('video');
       expect(result[1].meta.mediaType).to.equal('video');
@@ -1794,7 +1801,7 @@ describe('triplelift oRTB bid adapter', function () {
     });
 
     it('should return multiple responses to support SRA', function () {
-      const result = spec.interpretResponse(response, {bidderRequest});
+      const result = spec.interpretResponse(response, { bidderRequest });
       expect(result).to.have.length(4);
     });
 
@@ -1804,7 +1811,7 @@ describe('triplelift oRTB bid adapter', function () {
       const reqBidIds = bidderRequest.bids.map(b => b.bidId);
       expect(resImpIds).to.deep.equal(reqBidIds);
 
-      const result = spec.interpretResponse(response, {bidderRequest});
+      const result = spec.interpretResponse(response, { bidderRequest });
       expect(result.map(r => r.requestId)).to.deep.equal(reqBidIds);
     });
 
@@ -1813,34 +1820,34 @@ describe('triplelift oRTB bid adapter', function () {
       // either empty bids or bids cross-wired to the wrong bidRequest. With a correct
       // Prebid bidId lookup, each result.requestId still equals its corresponding
       // bid.imp_id.
-      const reversed = {body: {bids: [...response.body.bids].reverse()}};
-      const result = spec.interpretResponse(reversed, {bidderRequest});
+      const reversed = { body: { bids: [...response.body.bids].reverse() } };
+      const result = spec.interpretResponse(reversed, { bidderRequest });
       expect(result.map(r => r.requestId))
         .to.deep.equal(reversed.body.bids.map(b => b.imp_id));
     });
 
     it('should drop bids whose imp_id does not match any bid request', function () {
-      const orphan = {body: {bids: [{...response.body.bids[0], imp_id: 'no-such-bid-id'}]}};
-      const result = spec.interpretResponse(orphan, {bidderRequest});
+      const orphan = { body: { bids: [{ ...response.body.bids[0], imp_id: 'no-such-bid-id' }] } };
+      const result = spec.interpretResponse(orphan, { bidderRequest });
       expect(result).to.have.length(1);
       expect(result[0]).to.deep.equal({});
     });
 
     it('should include the advertiser name in the meta field if available', function () {
-      const result = spec.interpretResponse(response, {bidderRequest});
+      const result = spec.interpretResponse(response, { bidderRequest });
       expect(result[0].meta.advertiserName).to.equal('fake advertiser name');
       expect(result[1].meta).to.not.have.key('advertiserName');
     });
 
     it('should include the advertiser domain array in the meta field if available', function () {
-      const result = spec.interpretResponse(response, {bidderRequest});
+      const result = spec.interpretResponse(response, { bidderRequest });
       expect(result[0].meta.advertiserDomains[0]).to.equal('basspro.com');
       expect(result[0].meta.advertiserDomains[1]).to.equal('internetalerts.org');
       expect(result[1].meta).to.not.have.key('advertiserDomains');
     });
 
     it('should include networkId in the meta field if available', function () {
-      const result = spec.interpretResponse(response, {bidderRequest});
+      const result = spec.interpretResponse(response, { bidderRequest });
       expect(result[1].meta.networkId).to.equal('10092');
       expect(result[2].meta.networkId).to.equal('5989');
       expect(result[3].meta.networkId).to.equal('5989');
@@ -1883,7 +1890,7 @@ describe('triplelift oRTB bid adapter', function () {
         }
       };
 
-      const result = spec.interpretResponse(nativeResponse, {bidderRequest: nativeBidderRequest});
+      const result = spec.interpretResponse(nativeResponse, { bidderRequest: nativeBidderRequest });
 
       expect(result).to.have.length(1);
       expect(result[0].requestId).to.equal('test-native-bid-id');
@@ -1898,9 +1905,9 @@ describe('triplelift oRTB bid adapter', function () {
         assets: [{
           id: 1,
           required: 1,
-          title: {text: 'Triplelift Native'}
+          title: { text: 'Triplelift Native' }
         }],
-        link: {url: 'https://www.triplelift.com/'},
+        link: { url: 'https://www.triplelift.com/' },
         eventtrackers: [{
           event: 1,
           method: 1,
@@ -1951,7 +1958,7 @@ describe('triplelift oRTB bid adapter', function () {
 
       const result = spec.interpretResponse(
         { body: { bids: [{ ...nativeResponse.body.bids[0], imp_id: 'test-multi-format-bid-id' }] } },
-        {bidderRequest: multiFormatBidderRequest}
+        { bidderRequest: multiFormatBidderRequest }
       );
 
       expect(result).to.have.length(1);
@@ -2018,7 +2025,7 @@ describe('triplelift oRTB bid adapter', function () {
         }
       };
 
-      const result = spec.interpretResponse(bannerResponse, {bidderRequest: multiFormatBidderRequest});
+      const result = spec.interpretResponse(bannerResponse, { bidderRequest: multiFormatBidderRequest });
 
       expect(result).to.have.length(1);
       expect(result[0].requestId).to.equal('test-multi-format-bid-id');
@@ -2063,7 +2070,7 @@ describe('triplelift oRTB bid adapter', function () {
         consentString: GDPR_CONSENT_STR
       };
       const result = spec.getUserSyncs(syncOptions, null, gdprConsent);
-      expect(result[0].type).to.equal('image')
+      expect(result[0].type).to.equal('image');
       expect(result[0].url).to.equal(expectedImageSyncUrl);
     });
 
@@ -2102,7 +2109,7 @@ describe('triplelift oRTB bid adapter', function () {
       const gppConsent = {
         'applicableSections': [2, 8],
         'gppString': 'DBACNYA~CPXxRfAPXxRfAAfKABENB-CgAAAAAAAAAAYgAAAAAAAA~1YNN'
-      }
+      };
       const result = spec.getUserSyncs(syncOptions, null, gdprConsent, null, gppConsent);
       expect(result[0].url).to.equal(expectedGppSyncUrl);
     });
