@@ -1,0 +1,17 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  deploy:
+    name: PR Jira validation check
+    runs-on: [ubuntu-latest]
+    steps:
+       - name: PR Jira validation check
+         uses: triplelift-internal/actions/pr-check@v1.0
+         with:
+          github_token: '${{ secrets.GH_ORG_TOKEN }}'
+          jira_user: '${{ secrets.JIRA_USER }}'
+          jira_token: '${{ secrets.JIRA_TOKEN }}'
