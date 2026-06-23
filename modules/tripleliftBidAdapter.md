@@ -25,6 +25,8 @@ var adUnits = [{
         bidder: 'triplelift',
         params: {
            inventoryCode: 'forbes_main',
+           parentId: 'forbes_main_parent',
+           publisherId: 'forbes_main_publisher',
            floor: 1.009
         }
     }]
@@ -39,7 +41,9 @@ var adUnits = [{
     {
         bidder: 'triplelift',
         params: {
-           inventoryCode: 'foodgawker',
+           inventoryCode: 'foodgawker',,
+           parentId: 'foodgawker_parent',
+           publisherId: 'foodgawker_publisher',
            floor: 0.00
         }
     }]
@@ -55,6 +59,8 @@ var adUnits = [{
         bidder: 'triplelift',
         params: {
            inventoryCode: 'forbes_main',
+           parentId: 'forbes_main_parent',
+           publisherId: 'forbes_main_publisher',
            floor: 0
         }
     }]
@@ -71,6 +77,8 @@ var adUnits = [{
         bidder: 'triplelift',
         params: {
             inventoryCode: 'instream_test',
+            parentId: 'instream_parent',
+            publisherId: 'instream_publisher',
             video: {
                 mimes: ['video/mp4'],
                 w: 640,
