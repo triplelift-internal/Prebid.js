@@ -367,12 +367,16 @@ function parseNativeAd(bidRequest, bid) {
     return null;
   }
   const nativeAd = bid.ad;
-  if (!nativeAd) {
+  if (!nativeAd || typeof nativeAd !== 'string') {
+    return null;
+  }
+  // Guard against banner script payloads before invoking JSON.parse
+  if (nativeAd.trimStart().charAt(0) !== '{') {
     return null;
   }
   try {
     const parsedAd = JSON.parse(nativeAd);
-    return parsedAd.assets ? parsedAd : null;
+    return Array.isArray(parsedAd?.assets) && parsedAd.assets.length > 0 ? parsedAd : null;
   } catch (e) {
     logError('Triplelift: error parsing native ad JSON: ', e);
     return null;

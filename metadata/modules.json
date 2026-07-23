@@ -1391,7 +1391,7 @@
       "componentType": "bidder",
       "componentName": "aso",
       "aliasOf": null,
-      "gvlid": null,
+      "gvlid": 1621,
       "disclosureURL": null
     },
     {
@@ -1405,14 +1405,14 @@
       "componentType": "bidder",
       "componentName": "bidgency",
       "aliasOf": "aso",
-      "gvlid": null,
+      "gvlid": 1403,
       "disclosureURL": null
     },
     {
       "componentType": "bidder",
       "componentName": "kuantyx",
       "aliasOf": "aso",
-      "gvlid": null,
+      "gvlid": 1374,
       "disclosureURL": null
     },
     {
@@ -2278,6 +2278,13 @@
     },
     {
       "componentType": "bidder",
+      "componentName": "engerio",
+      "aliasOf": null,
+      "gvlid": null,
+      "disclosureURL": null
+    },
+    {
+      "componentType": "bidder",
       "componentName": "eplanning",
       "aliasOf": null,
       "gvlid": null,
@@ -2385,7 +2392,7 @@
       "componentType": "bidder",
       "componentName": "floxis",
       "aliasOf": null,
-      "gvlid": null,
+      "gvlid": 1609,
       "disclosureURL": null
     },
     {
@@ -2796,6 +2803,13 @@
     },
     {
       "componentType": "bidder",
+      "componentName": "jjtech",
+      "aliasOf": null,
+      "gvlid": null,
+      "disclosureURL": null
+    },
+    {
+      "componentType": "bidder",
       "componentName": "justpremium",
       "aliasOf": null,
       "gvlid": 62,
@@ -3041,6 +3055,13 @@
     },
     {
       "componentType": "bidder",
+      "componentName": "datafusion",
+      "aliasOf": "limelightDigital",
+      "gvlid": null,
+      "disclosureURL": null
+    },
+    {
+      "componentType": "bidder",
       "componentName": "livewrapped",
       "aliasOf": null,
       "gvlid": 919,
@@ -3135,6 +3156,13 @@
       "componentName": "luponmedia",
       "aliasOf": null,
       "gvlid": 1132,
+      "disclosureURL": null
+    },
+    {
+      "componentType": "bidder",
+      "componentName": "m152",
+      "aliasOf": null,
+      "gvlid": 1111,
       "disclosureURL": null
     },
     {
@@ -3254,6 +3282,13 @@
       "componentName": "mediago",
       "aliasOf": null,
       "gvlid": 1020,
+      "disclosureURL": null
+    },
+    {
+      "componentType": "bidder",
+      "componentName": "mgtechnology",
+      "aliasOf": "mediago",
+      "gvlid": 1575,
       "disclosureURL": null
     },
     {
@@ -3643,6 +3678,13 @@
     },
     {
       "componentType": "bidder",
+      "componentName": "ocm",
+      "aliasOf": null,
+      "gvlid": 1148,
+      "disclosureURL": null
+    },
+    {
+      "componentType": "bidder",
       "componentName": "ogury",
       "aliasOf": null,
       "gvlid": 31,
@@ -3890,6 +3932,13 @@
       "componentType": "bidder",
       "componentName": "pilotx",
       "aliasOf": "pilotx",
+      "gvlid": null,
+      "disclosureURL": null
+    },
+    {
+      "componentType": "bidder",
+      "componentName": "pinelake",
+      "aliasOf": null,
       "gvlid": null,
       "disclosureURL": null
     },
@@ -4220,6 +4269,13 @@
       "componentName": "revantage",
       "aliasOf": null,
       "gvlid": 1588,
+      "disclosureURL": null
+    },
+    {
+      "componentType": "bidder",
+      "componentName": "revbidortb",
+      "aliasOf": "revantage",
+      "gvlid": null,
       "disclosureURL": null
     },
     {
@@ -4617,6 +4673,13 @@
     {
       "componentType": "bidder",
       "componentName": "stackup",
+      "aliasOf": "smarthub",
+      "gvlid": null,
+      "disclosureURL": null
+    },
+    {
+      "componentType": "bidder",
+      "componentName": "adnex",
       "aliasOf": "smarthub",
       "gvlid": null,
       "disclosureURL": null
@@ -5773,6 +5836,12 @@
       "componentType": "rtd",
       "componentName": "SirdataRTDModule",
       "gvlid": 53,
+      "disclosureURL": null
+    },
+    {
+      "componentType": "rtd",
+      "componentName": "stackupRtd",
+      "gvlid": null,
       "disclosureURL": null
     },
     {
