@@ -1428,7 +1428,6 @@ describe('triplelift oRTB bid adapter', function () {
     });
 
     it('should send global config first party data if kvps are available', function() {
-      const sens = null;
       const category = ['news', 'weather', 'hurricane'];
       const pmp_elig = 'true';
       const ortb2 = {
@@ -1551,7 +1550,7 @@ describe('triplelift oRTB bid adapter', function () {
   });
 
   describe('interpretResponse', function () {
-    let response, bidderRequest, nativeBidderRequest, nativeResponse;
+    let response, bidderRequest, nativeResponse;
     this.beforeEach(() => {
       response = {
         body: {
