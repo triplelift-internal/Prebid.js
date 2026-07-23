@@ -1,8 +1,8 @@
 {
-	"httpRequest": {
-		"method": "POST",
-		"path": "/",
-		"body": {
+  "httpRequest": {
+    "method": "POST",
+    "path": "/",
+    "body": {
       "imp": [
         {
           "id": 0,
@@ -25,7 +25,8 @@
             }
           },
           "ext": {
-            "tidSource": "pbjs"
+            "tidSource": "pbjs",
+            "sharedPublisherId": "1234"
           }
         },
         {
@@ -49,7 +50,8 @@
             }
           },
           "ext": {
-            "tidSource": "pbjs"
+            "tidSource": "pbjs",
+            "sharedPublisherId": "1234"
           }
         }
       ],
@@ -132,5 +134,5 @@
         }
       }
     }
-	}
+  }
 }
