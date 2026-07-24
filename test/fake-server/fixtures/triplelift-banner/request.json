@@ -25,8 +25,7 @@
             }
           },
           "ext": {
-            "tidSource": "pbjs",
-            "sharedPublisherId": "1234"
+            "tidSource": "pbjs"
           }
         },
         {
@@ -50,8 +49,7 @@
             }
           },
           "ext": {
-            "tidSource": "pbjs",
-            "sharedPublisherId": "1234"
+            "tidSource": "pbjs"
           }
         }
       ],
