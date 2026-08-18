@@ -25,7 +25,8 @@ var adUnits = [{
         bidder: 'triplelift',
         params: {
            inventoryCode: 'forbes_main',
-           floor: 1.009
+           floor: 1.009,
+           sharedPublisherId: 'pub_12345'
         }
     }]
 }, {
@@ -40,7 +41,8 @@ var adUnits = [{
         bidder: 'triplelift',
         params: {
            inventoryCode: 'foodgawker',
-           floor: 0.00
+           floor: 0.00,
+           sharedPublisherId: 'pub_67890'
         }
     }]
 }, {
