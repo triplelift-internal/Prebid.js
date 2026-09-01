@@ -435,18 +435,14 @@ function buildBidResponse(bid, reqBids) {
       bidResponse.meta.advertiserDomains = bid.adomain;
     }
 
-    if (bid.tl_source === 'hdx') {
+    if (bid.tl_source && bid.tl_source === 'hdx') {
       bidResponse.meta.mediaType = isVideo ? 'video' : 'banner';
     }
 
-    if (bid.tl_source === 'tlx') {
+    if (bid.tl_source && bid.tl_source === 'tlx') {
+      bidResponse.meta.mediaType = 'native';
       if (nativeAd) {
-        bidResponse.meta.mediaType = 'native';
         bidResponse.mediaType = 'native';
-      } else if (isVideo) {
-        bidResponse.meta.mediaType = 'video';
-      } else {
-        bidResponse.meta.mediaType = 'banner';
       }
     }
 

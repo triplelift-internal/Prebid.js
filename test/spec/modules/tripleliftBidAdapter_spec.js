@@ -1788,7 +1788,16 @@ describe('triplelift oRTB bid adapter', function () {
 
     it('should identify format of bid and respond accordingly', function() {
       const result = spec.interpretResponse(response, { bidderRequest });
-      expect(result[0].meta.mediaType).to.equal('banner');
+      // tl_source 'tlx' is native demand; when it is delivered as rendered-native
+      // through the banner pipe the ad markup is a script tag, so meta.mediaType is
+      // reported as native while the bid itself stays a banner bid (no top level
+      // mediaType, ad/width/height present, no native payload).
+      expect(result[0].meta.mediaType).to.equal('native');
+      expect(result[0].mediaType).to.not.exist;
+      expect(result[0].native).to.not.exist;
+      expect(result[0].ad).to.equal('ad-markup');
+      expect(result[0].width).to.equal(300);
+      expect(result[0].height).to.equal(250);
       expect(result[1].mediaType).to.equal('video');
       expect(result[1].meta.mediaType).to.equal('video');
       // video bid on banner+outstream request
@@ -1815,10 +1824,6 @@ describe('triplelift oRTB bid adapter', function () {
     });
 
     it('should match TLX bids to bid requests regardless of response order', function () {
-      // Reverse the response order. The legacy array index lookup returns
-      // either empty bids or bids cross-wired to the wrong bidRequest. With a correct
-      // Prebid bidId lookup, each result.requestId still equals its corresponding
-      // bid.imp_id.
       const reversed = { body: { bids: [...response.body.bids].reverse() } };
       const result = spec.interpretResponse(reversed, { bidderRequest });
       expect(result.map(r => r.requestId))
@@ -1898,6 +1903,10 @@ describe('triplelift oRTB bid adapter', function () {
       expect(result[0].currency).to.equal('USD');
       expect(result[0].netRevenue).to.equal(true);
       expect(result[0].meta.mediaType).to.equal('native');
+      // true ORTB native payload => top level mediaType must also be native so core
+      // routes the bid through the native renderer
+      expect(result[0].mediaType).to.equal('native');
+      expect(result[0].ad).to.not.exist;
       expect(result[0].native).to.exist;
       expect(result[0].native.ortb).to.deep.equal({
         ver: '1.2',
@@ -1964,6 +1973,7 @@ describe('triplelift oRTB bid adapter', function () {
       expect(result[0].requestId).to.equal('test-multi-format-bid-id');
       expect(result[0].cpm).to.equal(5);
       expect(result[0].meta.mediaType).to.equal('native');
+      expect(result[0].mediaType).to.equal('native');
       expect(result[0].native).to.exist;
       expect(result[0].native.ortb.assets[0].title.text).to.equal('Triplelift Native');
     });
@@ -2033,7 +2043,63 @@ describe('triplelift oRTB bid adapter', function () {
       expect(result[0].height).to.equal(250);
       expect(result[0].ad).to.equal('<div>Banner Ad Markup</div>');
       expect(result[0].meta.mediaType).to.equal('banner');
+      expect(result[0].mediaType).to.not.exist;
       expect(result[0].native).to.not.exist;
+    });
+
+    it('should not set top level mediaType to native when a tlx bid returns rendered-native banner markup', function () {
+      // Triplelift delivers rendered-native through the banner pipe: tl_source is
+      // 'tlx' and the request is native eligible, but bid.ad is a script tag rather
+      // than an ORTB native object. The bid must stay renderable as banner markup.
+      const renderedNativeResponse = {
+        body: {
+          bids: [
+            {
+              imp_id: 'test-native-bid-id',
+              cpm: 5,
+              width: 300,
+              height: 250,
+              crid: 'test-native-crid',
+              ad: '<script>document.createElement("IMG").src="https://tlx.3lift.com/header/notify?px=1";</script>',
+              tl_source: 'tlx'
+            }
+          ]
+        }
+      };
+
+      const nativeBidderRequest = {
+        bidderCode: 'triplelift',
+        auctionId: 'test-native-auction-id',
+        bidderRequestId: 'test-native-bidder-request-id',
+        bids: [
+          {
+            bidder: 'triplelift',
+            params: {
+              inventoryCode: 'native_test',
+              parentId: 'parent_test'
+            },
+            mediaTypes: {
+              native: {
+                ortb: {
+                  assets: [{ id: 1, required: 1, title: { len: 80 } }]
+                }
+              }
+            },
+            adUnitCode: 'adunit-code-native',
+            bidId: 'test-native-bid-id'
+          }
+        ]
+      };
+
+      const result = spec.interpretResponse(renderedNativeResponse, { bidderRequest: nativeBidderRequest });
+
+      expect(result).to.have.length(1);
+      expect(result[0].native).to.not.exist;
+      expect(result[0].ad).to.equal(renderedNativeResponse.body.bids[0].ad);
+      expect(result[0].width).to.equal(300);
+      expect(result[0].height).to.equal(250);
+      expect(result[0].mediaType).to.not.exist;
+      expect(result[0].meta.mediaType).to.equal('native');
     });
   });
 
