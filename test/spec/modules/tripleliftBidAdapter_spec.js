@@ -137,6 +137,11 @@ describe('triplelift oRTB bid adapter', function () {
     it('exists and is a function', function () {
       expect(adapter.callBids).to.exist.and.to.be.a('function');
     });
+
+    it('registers the expected bidder code and gvlid', function () {
+      expect(spec.code).to.equal('triplelift');
+      expect(spec.gvlid).to.equal(28);
+    });
   });
 
   describe('isBidRequestValid', function () {
@@ -202,6 +207,38 @@ describe('triplelift oRTB bid adapter', function () {
     it('should return false when bid is null or undefined', function () {
       expect(spec.isBidRequestValid(null)).to.equal(false);
       expect(spec.isBidRequestValid(undefined)).to.equal(false);
+    });
+
+    it('should return false when required params are present but empty', function () {
+      // these are defined, so a `!== undefined` check would wrongly accept them
+      bid.params.inventoryCode = '';
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
+
+      bid.params.inventoryCode = 'inv_code_here';
+      bid.params.parentId = '';
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
+    });
+
+    it('should return false when required params are null', function () {
+      bid.params.inventoryCode = null;
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
+
+      bid.params.inventoryCode = 'inv_code_here';
+      bid.params.parentId = null;
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
+    });
+
+    it('should log an error identifying the ad unit when params are missing', function () {
+      const logErrorSpy = sinon.spy(utils, 'logError');
+      delete bid.params.inventoryCode;
+
+      try {
+        expect(spec.isBidRequestValid(bid)).to.equal(false);
+        expect(logErrorSpy.calledWithMatch(/inventoryCode/)).to.equal(true);
+        expect(logErrorSpy.calledWithMatch(new RegExp(bid.adUnitCode))).to.equal(true);
+      } finally {
+        logErrorSpy.restore();
+      }
     });
   });
 
@@ -898,9 +935,6 @@ describe('triplelift oRTB bid adapter', function () {
       const request = requests[0];
       const payload = request.data;
 
-      // pbjsInstance.version is 'v$prebid.version$' (see src/prebid.ts); the adapter
-      // writes the version to the URL without the leading 'v', so strip it here so this
-      // assertion does not drift with each Prebid release.
       const pbVersion = getGlobal().version.replace(/^v/, '');
 
       expect(request).to.exist;
@@ -922,13 +956,15 @@ describe('triplelift oRTB bid adapter', function () {
       // banner and outstream video
       expect(payload.imp[2]).to.have.property('video');
       expect(payload.imp[2]).to.have.property('banner');
-      expect(payload.imp[2].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }, { w: 300, h: 250 }, { w: 300, h: 600 }]);
+      // only mediaTypes.banner.sizes, not the legacy top level `sizes`
+      expect(payload.imp[2].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }]);
       expect(payload.imp[2].video).to.deep.equal({ 'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream' });
       // banner and incomplete video
       expect(payload.imp[3]).to.not.have.property('video');
       expect(payload.imp[3]).to.have.property('banner');
-      expect(payload.imp[3].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }, { w: 300, h: 250 }, { w: 300, h: 600 }]);
-      // incomplete mediatypes.banner and incomplete video
+      expect(payload.imp[3].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }]);
+      // incomplete mediatypes.banner and incomplete video: no mediaTypes.banner.sizes,
+      // so the legacy top level `sizes` is used as a fallback
       expect(payload.imp[4]).to.not.have.property('video');
       expect(payload.imp[4]).to.have.property('banner');
       expect(payload.imp[4].banner.format).to.deep.equal([{ w: 300, h: 250 }, { w: 300, h: 600 }]);
@@ -940,7 +976,7 @@ describe('triplelift oRTB bid adapter', function () {
       // banner and outstream video and native
       expect(payload.imp[6]).to.have.property('video');
       expect(payload.imp[6]).to.have.property('banner');
-      expect(payload.imp[6].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }, { w: 300, h: 250 }, { w: 300, h: 600 }]);
+      expect(payload.imp[6].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }]);
       expect(payload.imp[6].video).to.deep.equal({ 'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'w': 640, 'h': 480, 'context': 'outstream' });
       // outstream video only
       expect(payload.imp[7]).to.have.property('video');
@@ -949,7 +985,10 @@ describe('triplelift oRTB bid adapter', function () {
       // banner and incomplete outstream (missing size); video request is permitted so banner can still monetize
       expect(payload.imp[8]).to.have.property('video');
       expect(payload.imp[8]).to.have.property('banner');
-      expect(payload.imp[8].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }, { w: 300, h: 250 }, { w: 300, h: 600 }]);
+      // banner.format must come from mediaTypes.banner.sizes only. This ad unit also
+      // carries a legacy top level `sizes: [[300, 250], [300, 600], ...]`, which the
+      // publisher never declared for banner - those must not leak into the format list.
+      expect(payload.imp[8].banner.format).to.deep.equal([{ w: 970, h: 250 }, { w: 1, h: 1 }]);
       expect(payload.imp[8].video).to.deep.equal({ 'mimes': ['video/mp4'], 'maxduration': 30, 'minduration': 6, 'context': 'outstream' });
       // outstream new plcmt value
       expect(payload.imp[13]).to.have.property('video');
@@ -958,12 +997,17 @@ describe('triplelift oRTB bid adapter', function () {
       expect(payload.imp[14].ext.parentId).to.equal('parent_test');
       expect(payload.imp[14].ext.publisherId).to.equal('publisher_test');
       expect(payload.imp[14]).to.have.property('native');
-      expect(payload.imp[14].native).to.have.property('assets');
-      expect(payload.imp[14].native.assets).to.have.length(3);
+      // ORTB carries the native request as a JSON string on imp.native.request; the raw
+      // ORTB object must not be duplicated as siblings of it
+      expect(payload.imp[14].native).to.have.property('request');
+      expect(payload.imp[14].native).to.not.have.property('assets');
+      expect(Object.keys(payload.imp[14].native)).to.have.members(['request', 'ver']);
+      expect(JSON.parse(payload.imp[14].native.request).assets).to.have.length(3);
       // native and banner
       expect(payload.imp[15]).to.have.property('native');
       expect(payload.imp[15]).to.have.property('banner');
-      expect(payload.imp[15].native).to.have.property('assets');
+      expect(payload.imp[15].native).to.have.property('request');
+      expect(JSON.parse(payload.imp[15].native.request).assets).to.be.an('array');
       expect(payload.imp[15].banner.format).to.deep.equal([{ w: 728, h: 90 }, { w: 970, h: 250 }]);
     });
 
@@ -1367,6 +1411,41 @@ describe('triplelift oRTB bid adapter', function () {
       expect(request.data.imp[1].bidfloorcur).to.deep.equal(undefined);
     });
 
+    it('should always request floors in USD regardless of adServerCurrency', function() {
+      config.setConfig({ currency: { adServerCurrency: 'EUR' } });
+      bidRequests[0].getFloor = () => {};
+      sinon.spy(bidRequests[0], 'getFloor');
+
+      try {
+        spec.buildRequests(bidRequests, bidderRequest);
+        expect(bidRequests[0].getFloor.calledWith(sinon.match({ currency: 'USD' }))).to.equal(true);
+      } finally {
+        bidRequests[0].getFloor.restore();
+        config.resetConfig();
+      }
+    });
+
+    it('should always send cur as USD regardless of adServerCurrency', function() {
+      config.setConfig({ currency: { adServerCurrency: 'EUR' } });
+      try {
+        const request = spec.buildRequests(bidRequests, bidderRequest)[0];
+        expect(request.data.cur).to.deep.equal(['USD']);
+      } finally {
+        config.resetConfig();
+      }
+    });
+
+    it('should warn and ignore a floor that cannot be expressed in USD', function() {
+      const logWarnSpy = sinon.spy(utils, 'logWarn');
+      bidRequests[0].getFloor = () => ({ currency: 'BTC', floor: 10.99 });
+
+      const request = spec.buildRequests(bidRequests, bidderRequest)[0];
+
+      expect(request.data.imp[0].floor).to.equal(1.00); // falls back to params.floor
+      expect(logWarnSpy.calledWithMatch(/only USD is supported/)).to.equal(true);
+      logWarnSpy.restore();
+    });
+
     it('should add ortb2 ext object if global fpd is available', function() {
       const ortb2 = {
         site: {
@@ -1546,6 +1625,152 @@ describe('triplelift oRTB bid adapter', function () {
       const requests = spec.buildRequests(bidRequests, bidderRequest);
       const request = requests[0];
       expect(request.data.imp[14].native).to.exist.and.to.be.a('object');
+    });
+
+    it('should build imp.native for a legacy (non-ortb) native ad unit', function () {
+      const legacyNativeBid = {
+        bidder: 'triplelift',
+        params: { inventoryCode: 'native_test', parentId: 'parent_test' },
+        mediaTypes: {
+          native: {
+            title: { required: true, len: 80 },
+            image: { required: true, sizes: [300, 250] }
+          }
+        },
+        // core converts the legacy syntax and hangs it here, not on mediaTypes.native.ortb
+        nativeOrtbRequest: {
+          ver: '1.2',
+          assets: [{ id: 1, required: 1, title: { len: 80 } }]
+        },
+        adUnitCode: 'adunit-code-native-legacy',
+        bidId: 'legacy-native-bid-id'
+      };
+
+      const request = spec.buildRequests([legacyNativeBid], bidderRequest)[0];
+      expect(request.data.imp[0]).to.have.property('native');
+      expect(request.data.imp[0].native).to.have.property('request');
+      expect(JSON.parse(request.data.imp[0].native.request).assets).to.have.length(1);
+    });
+
+    it('should preserve every publisher-specified video field on imp.video', function () {
+      const request = spec.buildRequests(bidRequests, bidderRequest)[0];
+
+      request.data.imp.forEach((imp, i) => {
+        if (!imp.video) return;
+
+        const mediaTypesVideo = { ...(bidRequests[i].mediaTypes && bidRequests[i].mediaTypes.video) };
+        delete mediaTypesVideo.playerSize; // intentionally translated to w/h
+        const paramsVideo = (bidRequests[i].params && bidRequests[i].params.video) || {};
+
+        Object.keys(mediaTypesVideo).forEach(key => {
+          expect(imp.video, `imp[${i}].video is missing mediaTypes.video.${key}`).to.have.property(key);
+        });
+        Object.keys(paramsVideo).forEach(key => {
+          expect(imp.video, `imp[${i}].video is missing params.video.${key}`).to.have.property(key);
+        });
+
+        // playerSize must still have been translated
+        if (bidRequests[i].mediaTypes.video.playerSize) {
+          expect(imp.video, `imp[${i}].video is missing w`).to.have.property('w');
+          expect(imp.video, `imp[${i}].video is missing h`).to.have.property('h');
+        }
+      });
+    });
+
+    it('should apply params.video on top of mediaTypes.video', function () {
+      const videoOverrideBid = {
+        bidder: 'triplelift',
+        params: {
+          inventoryCode: 'video_override_test',
+          parentId: 'parent_test',
+          video: {
+            mimes: ['video/webm'],
+            maxduration: 15
+          }
+        },
+        mediaTypes: {
+          video: {
+            context: 'instream',
+            playerSize: [640, 480],
+            mimes: ['video/mp4'],
+            maxduration: 30
+          }
+        },
+        adUnitCode: 'adunit-code-video-override',
+        bidId: 'video-override-bid-id'
+      };
+
+      const request = spec.buildRequests([videoOverrideBid], bidderRequest)[0];
+      const impVideo = request.data.imp[0].video;
+
+      expect(impVideo.maxduration).to.equal(15);
+      expect(impVideo.mimes).to.include('video/webm');
+      expect(impVideo.w).to.equal(640);
+      expect(impVideo.h).to.equal(480);
+    });
+
+    it('should skip malformed entries in sizes rather than throw', function () {
+      const badSizesBid = {
+        bidder: 'triplelift',
+        params: { inventoryCode: 'size_test', parentId: 'parent_test' },
+        mediaTypes: { banner: { sizes: [[300, 250], null, undefined, [1, 1, 1], ['flex']] } },
+        adUnitCode: 'adunit-code-bad-sizes',
+        bidId: 'bad-sizes-bid-id'
+      };
+
+      let request;
+      expect(() => {
+        request = spec.buildRequests([badSizesBid], bidderRequest)[0];
+      }).to.not.throw();
+      expect(request.data.imp[0].banner.format).to.deep.equal([{ w: 300, h: 250 }]);
+    });
+
+    it('should not throw when a bid request carries no params', function () {
+      // converter.toORTB is reachable without isBidRequestValid having run
+      const noParamsBid = {
+        bidder: 'triplelift',
+        mediaTypes: { banner: { sizes: [[300, 250]] } },
+        adUnitCode: 'adunit-code-no-params',
+        bidId: 'no-params-bid-id'
+      };
+
+      let request;
+      expect(() => {
+        request = spec.buildRequests([noParamsBid], bidderRequest)[0];
+      }).to.not.throw();
+      expect(request.data.imp[0]).to.not.have.property('tagid');
+      expect(request.data.imp[0].ext || {}).to.not.have.property('parentId');
+    });
+
+    it('should build banner.format from mediaTypes.banner.sizes and ignore legacy sizes', function () {
+      const bidRequest = {
+        bidder: 'triplelift',
+        params: { inventoryCode: 'size_test', parentId: 'parent_test' },
+        mediaTypes: {
+          banner: { sizes: [[300, 250]] }
+        },
+        // legacy flattened list containing a size never declared for banner
+        sizes: [[300, 250], [728, 90]],
+        adUnitCode: 'adunit-code-sizes',
+        bidId: 'size-test-bid-id'
+      };
+
+      const request = spec.buildRequests([bidRequest], bidderRequest)[0];
+      expect(request.data.imp[0].banner.format).to.deep.equal([{ w: 300, h: 250 }]);
+    });
+
+    it('should fall back to legacy sizes when mediaTypes.banner.sizes is absent', function () {
+      const bidRequest = {
+        bidder: 'triplelift',
+        params: { inventoryCode: 'size_test', parentId: 'parent_test' },
+        mediaTypes: { banner: {} },
+        sizes: [[300, 250], [728, 90]],
+        adUnitCode: 'adunit-code-sizes-legacy',
+        bidId: 'size-test-legacy-bid-id'
+      };
+
+      const request = spec.buildRequests([bidRequest], bidderRequest)[0];
+      expect(request.data.imp[0].banner.format).to.deep.equal([{ w: 300, h: 250 }, { w: 728, h: 90 }]);
     });
   });
 
@@ -1790,8 +2015,7 @@ describe('triplelift oRTB bid adapter', function () {
       const result = spec.interpretResponse(response, { bidderRequest });
       // tl_source 'tlx' is native demand; when it is delivered as rendered-native
       // through the banner pipe the ad markup is a script tag, so meta.mediaType is
-      // reported as native while the bid itself stays a banner bid (no top level
-      // mediaType, ad/width/height present, no native payload).
+      // reported as native while the bid itself stays a banner bid
       expect(result[0].meta.mediaType).to.equal('native');
       expect(result[0].mediaType).to.not.exist;
       expect(result[0].native).to.not.exist;
@@ -1833,8 +2057,71 @@ describe('triplelift oRTB bid adapter', function () {
     it('should drop bids whose imp_id does not match any bid request', function () {
       const orphan = { body: { bids: [{ ...response.body.bids[0], imp_id: 'no-such-bid-id' }] } };
       const result = spec.interpretResponse(orphan, { bidderRequest });
+      expect(result).to.have.length(0);
+    });
+
+    it('should drop bids with no price or no creative', function () {
+      const noBids = {
+        body: {
+          bids: [
+            { ...response.body.bids[0], cpm: 0 },
+            { ...response.body.bids[0], cpm: undefined },
+            { ...response.body.bids[0], ad: undefined }
+          ]
+        }
+      };
+      const result = spec.interpretResponse(noBids, { bidderRequest });
+      expect(result).to.have.length(0);
+    });
+
+    it('should not log an error when a native-eligible imp is answered with banner markup', function () {
+      // On a multi-format (banner + native) imp, a banner response is an expected outcome
+      const logErrorSpy = sinon.spy(utils, 'logError');
+      const bannerResponse = {
+        body: {
+          bids: [{
+            imp_id: 'probe-bid-id',
+            cpm: 3.5,
+            width: 300,
+            height: 250,
+            ad: '<div>Banner Ad Markup</div>',
+            crid: 'probe-crid',
+            tl_source: 'hdx'
+          }]
+        }
+      };
+      const req = {
+        bidderCode: 'triplelift',
+        bids: [{
+          bidder: 'triplelift',
+          params: { inventoryCode: 'mf', parentId: 'p' },
+          mediaTypes: {
+            banner: { sizes: [[300, 250]] },
+            native: { ortb: { assets: [{ id: 1, required: 1, title: { len: 80 } }] } }
+          },
+          bidId: 'probe-bid-id'
+        }]
+      };
+
+      try {
+        const result = spec.interpretResponse(bannerResponse, { bidderRequest: req });
+        expect(result).to.have.length(1);
+        expect(logErrorSpy.called, 'logError args: ' + JSON.stringify(logErrorSpy.args)).to.equal(false);
+      } finally {
+        logErrorSpy.restore();
+      }
+    });
+
+    it('should not throw when crid is returned as a number', function () {
+      const numericCrid = { body: { bids: [{ ...response.body.bids[0], crid: 29681110 }] } };
+      let result;
+      expect(() => {
+        result = spec.interpretResponse(numericCrid, { bidderRequest });
+      }).to.not.throw();
       expect(result).to.have.length(1);
-      expect(result[0]).to.deep.equal({});
+      expect(result[0].creativeId).to.equal('29681110');
+      // no underscore in the crid, so no networkId can be derived
+      expect(result[0].meta).to.not.have.property('networkId');
     });
 
     it('should include the advertiser name in the meta field if available', function () {
@@ -2108,9 +2395,10 @@ describe('triplelift oRTB bid adapter', function () {
     const expectedImageSyncUrl = 'https://eb2.3lift.com/sync?px=1&src=prebid&gdpr=true&cmp_cs=' + GDPR_CONSENT_STR + '&';
     const expectedGppSyncUrl = 'https://eb2.3lift.com/sync?gdpr=true&cmp_cs=' + GDPR_CONSENT_STR + '&gpp=' + GPP_CONSENT_STR + '&gpp_sid=2%2C8' + '&';
 
-    it('returns undefined when syncing is not enabled', function() {
-      expect(spec.getUserSyncs({})).to.equal(undefined);
-      expect(spec.getUserSyncs()).to.equal(undefined);
+    it('returns an empty array when syncing is not enabled', function() {
+      // getUserSyncs is declared to return an array of sync objects
+      expect(spec.getUserSyncs({})).to.deep.equal([]);
+      expect(spec.getUserSyncs()).to.deep.equal([]);
     });
 
     it('returns iframe user sync pixel when iframe syncing is enabled', function() {
@@ -2163,6 +2451,7 @@ describe('triplelift oRTB bid adapter', function () {
       const result = spec.getUserSyncs(syncOptions, null, gdprConsent, '1YYY', null);
       expect(result[0].url).to.match(/(\?|&)us_privacy=1YYY/);
     });
+
     it('returns a user sync pixel with GPP signals when available', function() {
       const syncOptions = {
         iframeEnabled: true

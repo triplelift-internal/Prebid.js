@@ -1,4 +1,4 @@
-import { deepAccess, logError, mergeDeep, logWarn, logInfo } from '../src/utils.js';
+import { deepAccess, logError, mergeDeep, logWarn } from '../src/utils.js';
 import { BANNER, NATIVE, VIDEO } from '../src/mediaTypes.js';
 import { ortbConverter } from '../libraries/ortbConverter/converter.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
@@ -11,6 +11,7 @@ export const SYNC_ENDPOINT = 'https://eb2.3lift.com/sync?';
 const BIDDER_CODE = 'triplelift';
 const BANNER_TIME_TO_LIVE = 300;
 const VIDEO_TIME_TO_LIVE = 3600;
+const CURRENCY = 'USD';
 let gdprApplies = null;
 let consentString = null;
 const DEFAULT_GZIP_ENABLED = true;
@@ -20,18 +21,21 @@ export const storage = getStorageManager({ bidderCode: BIDDER_CODE });
 const converter = ortbConverter({
   context: {
     ttl: BANNER_TIME_TO_LIVE,
-    netRevenue: true
+    netRevenue: true,
+    currency: CURRENCY
   },
   imp(buildImp, bidRequest, context) {
     const imp = buildImp(bidRequest, context);
 
-    if (bidRequest.params.inventoryCode) {
-      imp.tagid = bidRequest.params.inventoryCode;
+    const params = bidRequest.params || {};
+
+    if (params.inventoryCode) {
+      imp.tagid = params.inventoryCode;
     }
-    if (bidRequest.params.parentId || bidRequest.params.publisherId) {
+    if (params.parentId || params.publisherId) {
       imp.ext = imp.ext || {};
-      if (bidRequest.params.parentId) imp.ext.parentId = bidRequest.params.parentId;
-      if (bidRequest.params.publisherId) imp.ext.publisherId = bidRequest.params.publisherId;
+      if (params.parentId) imp.ext.parentId = params.parentId;
+      if (params.publisherId) imp.ext.publisherId = params.publisherId;
     }
 
     if (isValidVideo(bidRequest)) {
@@ -59,21 +63,21 @@ const converter = ortbConverter({
       });
     }
     if (isInstreamRequest(bidRequest)) {
-      // Remove banner set by the default ortbConverter processor if instream
       delete imp.banner;
     } else if (isBannerRequest(bidRequest)) {
-      mergeDeep(imp, {
-        banner: {
-          format: formatSizes(bidRequest.sizes)
-        }
-      });
+      const bannerSizes = deepAccess(bidRequest, 'mediaTypes.banner.sizes') || bidRequest.sizes;
+      const format = formatSizes(bannerSizes);
+      if (format.length) {
+        imp.banner = { ...imp.banner, format };
+      }
     }
-    if (isNativeRequest(bidRequest)) {
-      const nativeParams = deepAccess(bidRequest, 'mediaTypes.native');
-      if (nativeParams && nativeParams.ortb) {
-        mergeDeep(imp, {
-          native: nativeParams.ortb
-        });
+    if (isNativeRequest(bidRequest) && !deepAccess(imp, 'native.request')) {
+      const nativeOrtb = bidRequest.nativeOrtbRequest || deepAccess(bidRequest, 'mediaTypes.native.ortb');
+      if (nativeOrtb && nativeOrtb.assets && nativeOrtb.assets.length) {
+        imp.native = {
+          request: JSON.stringify(nativeOrtb),
+          ver: nativeOrtb.ver || '1.2'
+        };
       }
     }
 
@@ -110,11 +114,19 @@ const converter = ortbConverter({
 });
 
 export const spec = {
-  code: 'triplelift',
+  code: BIDDER_CODE,
   gvlid: 28,
   supportedMediaTypes: [BANNER, VIDEO, NATIVE],
   isBidRequestValid: function (bid) {
-    return bid?.params?.inventoryCode !== undefined && bid?.params?.parentId !== undefined;
+    const inventoryCode = bid?.params?.inventoryCode;
+    const parentId = bid?.params?.parentId;
+
+    if (!inventoryCode || !parentId) {
+      logError(`Triplelift: bid from ad unit "${bid?.adUnitCode}" is missing required params; both params.inventoryCode and params.parentId must be set.`);
+      return false;
+    }
+
+    return true;
   },
   buildRequests: function(bidRequests, bidderRequest) {
     const data = converter.toORTB({ bidRequests, bidderRequest });
@@ -135,11 +147,19 @@ export const spec = {
     const bids = response?.body?.bids || [];
 
     const reqBids = bidderRequest?.bids || [];
-    return bids.map(bid => buildBidResponse(bid, reqBids));
+
+    return bids.reduce((bidResponses, bid) => {
+      const bidResponse = buildBidResponse(bid, reqBids);
+      if (bidResponse.requestId) {
+        bidResponses.push(bidResponse);
+      }
+      return bidResponses;
+    }, []);
   },
   getUserSyncs: function(syncOptions, responses, gdprConsent, usPrivacy, gppConsent) {
     const syncType = getSyncType(syncOptions);
-    if (!syncType) return;
+
+    if (!syncType) return [];
 
     let syncEndpoint = SYNC_ENDPOINT;
 
@@ -206,12 +226,15 @@ function getBidFloor(bidRequest) {
   if (typeof bidRequest.getFloor === 'function') {
     try {
       const floorData = bidRequest.getFloor({
-        currency: 'USD',
+        currency: CURRENCY,
         mediaType: isValidVideo(bidRequest) ? 'video' : (isNativeRequest(bidRequest) ? 'native' : 'banner'),
         size: '*'
       });
-      if (floorData && floorData.currency === 'USD' && !isNaN(floorData.floor)) {
+      if (floorData && floorData.currency === CURRENCY && !isNaN(floorData.floor)) {
         floor = parseFloat(floorData.floor);
+      } else if (floorData && floorData.currency !== CURRENCY) {
+        // Triplelift only transacts in USD
+        logWarn(`Triplelift: ignoring price floor returned in ${floorData.currency}; only ${CURRENCY} is supported. Load the currency module to have floors converted.`);
       }
     } catch (e) {
       logError('Triplelift: error calling getFloor: ', e);
@@ -222,13 +245,16 @@ function getBidFloor(bidRequest) {
 }
 
 function setBidFloors(bidRequest, imp) {
-  if (imp.bidfloorcur !== 'USD') {
+  if (imp.bidfloor != null && imp.bidfloorcur !== CURRENCY) {
+    logWarn(`Triplelift: ignoring price floor of ${imp.bidfloor} ${imp.bidfloorcur}; only ${CURRENCY} is supported. Load the currency module to have floors converted.`);
     delete imp.bidfloor;
     delete imp.bidfloorcur;
-  } else if (imp.bidfloor) {
+  } else if (imp.bidfloor != null) {
     imp.floor = imp.bidfloor;
 
     delete imp.bidfloor;
+    delete imp.bidfloorcur;
+  } else {
     delete imp.bidfloorcur;
   }
 
@@ -304,18 +330,14 @@ function getGzipSetting() {
     if (gzipSetting !== undefined) {
       const gzipValue = String(gzipSetting).toLowerCase().trim();
       if (gzipValue === 'true' || gzipValue === 'false') {
-        const parsedValue = gzipValue === 'true';
-        logInfo('Triplelift: Using bidder-specific gzipEnabled setting:', parsedValue);
-        return parsedValue;
+        return gzipValue === 'true';
       }
-
       logWarn('Triplelift: Invalid gzipEnabled value in bidder config:', gzipSetting);
     }
   } catch (e) {
     logWarn('Triplelift: Error accessing bidder config:', e);
   }
 
-  logInfo('Triplelift: Using default gzipEnabled setting:', DEFAULT_GZIP_ENABLED);
   return DEFAULT_GZIP_ENABLED;
 }
 
@@ -330,7 +352,7 @@ function formatSizes(sizes) {
 }
 
 function isValidSize(size) {
-  return (size.length === 2 && typeof size[0] === 'number' && typeof size[1] === 'number');
+  return (Array.isArray(size) && size.length === 2 && typeof size[0] === 'number' && typeof size[1] === 'number');
 }
 
 function getVideoContext(bidRequest) {
@@ -343,7 +365,7 @@ function isValidVideo(bidRequest) {
 }
 
 function isNativeRequest(bidRequest) {
-  return deepAccess(bidRequest, 'mediaTypes.native.ortb');
+  return !!(bidRequest?.nativeOrtbRequest || deepAccess(bidRequest, 'mediaTypes.native'));
 }
 
 function isBannerRequest(bidRequest) {
@@ -367,12 +389,18 @@ function parseNativeAd(bidRequest, bid) {
     return null;
   }
   const nativeAd = bid.ad;
-  if (!nativeAd) {
+  if (typeof nativeAd !== 'string' || !nativeAd) {
     return null;
   }
+
+  const trimmedAd = nativeAd.trim();
+  if (trimmedAd.charAt(0) !== '{') {
+    return null;
+  }
+
   try {
-    const parsedAd = JSON.parse(nativeAd);
-    return parsedAd.assets ? parsedAd : null;
+    const parsedAd = JSON.parse(trimmedAd);
+    return parsedAd && parsedAd.assets ? parsedAd : null;
   } catch (e) {
     logError('Triplelift: error parsing native ad JSON: ', e);
     return null;
@@ -384,7 +412,7 @@ function buildBidResponse(bid, reqBids) {
   const width = bid.width || 1;
   const height = bid.height || 1;
   const dealId = bid.deal_id || '';
-  const creativeId = bid.crid || '';
+  const creativeId = String(bid.crid ?? '');
 
   const impId = String(bid.imp_id);
   const breq = reqBids.find(b => String(b.bidId) === impId);
@@ -393,7 +421,7 @@ function buildBidResponse(bid, reqBids) {
     return {};
   }
 
-  if (bid.cpm !== 0 && bid.ad) {
+  if (bid.cpm > 0 && bid.ad) {
     const nativeAd = parseNativeAd(breq, bid);
     const isVideo = isVideoRequest(breq) && bid.media_type === 'video';
     const baseBidResponse = {
@@ -402,7 +430,7 @@ function buildBidResponse(bid, reqBids) {
       netRevenue: true,
       creativeId: creativeId,
       dealId: dealId,
-      currency: 'USD',
+      currency: CURRENCY,
       ttl: BANNER_TIME_TO_LIVE,
       tl_source: bid.tl_source,
       meta: {}
