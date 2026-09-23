@@ -159,6 +159,11 @@ function _buildPostBody(bidRequests, bidderRequest) {
       }
     }
 
+    if (bidRequest.params.sharedPublisherId) {
+      imp.ext = imp.ext || {};
+      imp.ext.sharedPublisherId = bidRequest.params.sharedPublisherId;
+    }
+
     return imp;
   });
 
