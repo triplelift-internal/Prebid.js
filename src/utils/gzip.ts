@@ -1,15 +1,17 @@
 export const isGzipCompressionSupported: () => Promise<boolean> = (function () {
   const result = (async () => {
     try {
-      if (typeof window.CompressionStream === 'undefined' || typeof window.DecompressionStream === 'undefined') {
+      if (typeof window.CompressionStream === 'undefined' || typeof window.DecompressionStream === 'undefined' || typeof Response.prototype.bytes === 'undefined') {
         return false;
       }
       const probe = 'prebid-gzip-probe';
-      const compressed = await compressDataWithGZip(probe);
-      const decompressed = new Blob([compressed])
+      const encoder = new TextEncoder();
+      const encodedData = encoder.encode(probe);
+      const stream = new Blob([encodedData])
         .stream()
+        .pipeThrough(new window.CompressionStream('gzip'))
         .pipeThrough(new window.DecompressionStream('gzip'));
-      return await new Response(decompressed).text() === probe;
+      return await new Response(stream).text() === probe;
     } catch (error) {
       return false;
     }
@@ -29,7 +31,5 @@ export async function compressDataWithGZip(data) {
     .stream()
     .pipeThrough(new window.CompressionStream('gzip'));
 
-  const compressedBlob = await new Response(compressedStream).blob();
-  const compressedArrayBuffer = await compressedBlob.arrayBuffer();
-  return new Uint8Array(compressedArrayBuffer);
+  return await new Response(compressedStream).bytes();
 }
